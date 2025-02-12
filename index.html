@@ -124,23 +124,45 @@
         this.color = color;
         this.hoverColor = hoverColor;
       }
+      
       draw(ctx) {
-        // Check if mouse is over this button
-        const isHover = (mouseX >= this.x && mouseX <= this.x + this.width &&
-                         mouseY >= this.y && mouseY <= this.y + this.height);
+        // Set the font so we can measure the text width
+        ctx.font = FONT;
+        let textWidth = ctx.measureText(this.text).width;
+        const padding = 20; // extra padding on left and right
+
+        // Ensure the button is wide enough to cover the full text + padding
+        if (this.width < textWidth + padding) {
+          this.width = textWidth + padding;
+        }
+        
+        // Check if the mouse is over this button
+        const isHover = (
+          mouseX >= this.x &&
+          mouseX <= this.x + this.width &&
+          mouseY >= this.y &&
+          mouseY <= this.y + this.height
+        );
         ctx.fillStyle = isHover ? this.hoverColor : this.color;
         ctx.fillRect(this.x, this.y, this.width, this.height);
-        // Draw centered text
-        ctx.font = FONT;
+        
+        // Draw the text centered in the button
         ctx.fillStyle = WHITE;
-        const textWidth = ctx.measureText(this.text).width;
-        ctx.fillText(this.text, this.x + (this.width - textWidth) / 2, this.y + this.height/2 + 10);
+        ctx.fillText(
+          this.text,
+          this.x + (this.width - textWidth) / 2,
+          this.y + this.height / 2 + 10
+        );
       }
+      
       isClicked(x, y) {
-        return (x >= this.x && x <= this.x + this.width &&
-                y >= this.y && y <= this.y + this.height);
+        return (
+          x >= this.x && x <= this.x + this.width &&
+          y >= this.y && y <= this.y + this.height
+        );
       }
     }
+
 
     // ------------------------------
     // Role Selection Buttons
@@ -153,14 +175,14 @@
     // Move decision buttons up by reducing the y-coordinate (from 0.43 to 0.38 of HEIGHT)
     const cipherButtons = [
       new Button(WIDTH * 0.06, HEIGHT * 0.38, 200, 50, "Low Encryption", RED, CYBER_BLUE),
-      new Button(WIDTH * 0.45, HEIGHT * 0.38, 200, 50, "Medium Encryption", RED, CYBER_BLUE),
+      new Button(WIDTH * 0.33, HEIGHT * 0.38, 200, 50, "Medium Encryption", RED, CYBER_BLUE),
       new Button(WIDTH * 0.60, HEIGHT * 0.38, 200, 50, "High Encryption", RED, CYBER_BLUE)
     ];
 
     const trackerButtons = [
       new Button(WIDTH * 0.17, HEIGHT * 0.38, 200, 50, "Minimum Attack", RED, GRAY),
       new Button(WIDTH * 0.41, HEIGHT * 0.38, 200, 50, "Medium Attack", RED, GRAY),
-      new Button(WIDTH * 0.68, HEIGHT * 0.38, 200, 50, "Maximum Attack", RED, GRAY)
+      new Button(WIDTH * 0.64, HEIGHT * 0.38, 200, 50, "Maximum Attack", RED, GRAY)
     ];
 
 
