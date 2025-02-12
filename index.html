@@ -58,6 +58,9 @@
     // State machine: roleSelection, textCrawl, gamePlaying, gameOverScreen
     let state = "roleSelection";
 
+    // Flag to trigger the game-over typewriter effect only once
+    let gameOverScreenInitialized = false;
+
     // Game variables
     let roundNumber = 1;
     const totalRounds = 5;
@@ -163,7 +166,6 @@
       }
     }
 
-
     // ------------------------------
     // Role Selection Buttons
     // ------------------------------
@@ -184,8 +186,6 @@
       new Button(WIDTH * 0.41, HEIGHT * 0.38, 200, 50, "Medium Attack", RED, GRAY),
       new Button(WIDTH * 0.64, HEIGHT * 0.38, 200, 50, "Maximum Attack", RED, GRAY)
     ];
-
-
 
     // ------------------------------
     // Text Crawl Variables & Logic
@@ -425,9 +425,6 @@
       ctx.fillText("I = Data Intercepted (Tracker), R = Identification Risk (Tracker)", matrixX, legendY + 50);
     }
 
-
-
-
     // ------------------------------
     // Typewriter Effect for Game Over Screen
     // ------------------------------
@@ -569,6 +566,11 @@
     function mainLoop() {
       update();
       draw();
+      // When in gameOverScreen state and the screen hasn't been initialized, trigger the typewriter effect
+      if (state === "gameOverScreen" && !gameOverScreenInitialized) {
+        showGameOverScreen();
+        gameOverScreenInitialized = true;
+      }
       requestAnimationFrame(mainLoop);
     }
     mainLoop();
