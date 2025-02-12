@@ -359,76 +359,23 @@
     // Draw the Payoff Matrix
     // ------------------------------
     function drawPayoffMatrix() {
-      // Adjust the matrix's starting position, row height, and column width
-      // Shift the matrix to the left (matrixX) and upward (matrixY)
-      const matrixX = WIDTH * 0.20;  // shifted left from 0.24 to 0.20
-      const matrixY = HEIGHT * 0.55; // shifted up from 0.6 to 0.55
-      const rowHeight = 70;          // increased vertical space per row
-      const colWidth = 250;          // increased horizontal space per column
-    
+      const matrixX = WIDTH * 0.24;
+      const matrixY = HEIGHT * 0.6;
+      const rowHeight = 50;
+      const colWidth = 220;
+
       ctx.font = FONT;
       ctx.fillStyle = WHITE;
-      // Draw header label for the matrix
+      // Header label
       ctx.fillText("Cipher / Tracker", matrixX - 140, matrixY - 40);
-    
-      // Draw column headers for Tracker choices
+
+      // Column headers for Tracker choices
       const trackerKeys = Object.keys(trackerChoices);
       for (let j = 0; j < trackerKeys.length; j++) {
         ctx.fillText(trackerKeys[j], matrixX + j * colWidth + 50, matrixY);
       }
-    
-      // Draw rows for Cipher choices and their payoff details
-      const cipherKeys = Object.keys(cipherChoices);
-      for (let i = 0; i < cipherKeys.length; i++) {
-        // Move the encryption choice labels further to the left
-        ctx.fillText(cipherKeys[i], matrixX - 210, matrixY + (i + 1) * rowHeight);
-        for (let j = 0; j < trackerKeys.length; j++) {
-          const cipherData = cipherChoices[cipherKeys[i]].data;
-          const cipherCostVal = cipherChoices[cipherKeys[i]].cost;
-          const trackerInterception = Math.floor((cipherData * trackerChoices[trackerKeys[j]].interception) / 100);
-          const trackerRisk = trackerChoices[trackerKeys[j]].risk;
-          const payoffText = `(${cipherData}D, ${cipherCostVal}C) | (${trackerInterception}I, ${trackerRisk}R)`;
-          ctx.fillText(payoffText, matrixX + j * colWidth + 20, matrixY + (i + 1) * rowHeight);
-        }
-      }
-    
-      // Draw the legend below the matrix
-      const legendY = matrixY + (cipherKeys.length + 1) * rowHeight + 10;
-      ctx.fillStyle = CYBER_BLUE;
-      ctx.fillText("Legend:", matrixX, legendY);
-      ctx.fillStyle = WHITE;
-      ctx.fillText("D = Data Sent (Cipher), C = Cost (Cipher)", matrixX, legendY + 25);
-      ctx.fillText("I = Data Intercepted (Tracker), R = Identification Risk (Tracker)", matrixX, legendY + 50);
-    }
 
-
-  // Draw rows for Cipher choices and their payoff details
-  const cipherKeys = Object.keys(cipherChoices);
-  for (let i = 0; i < cipherKeys.length; i++) {
-    // Move the encryption choice labels further to the left
-    ctx.fillText(cipherKeys[i], matrixX - 210, matrixY + (i + 1) * rowHeight);
-    for (let j = 0; j < trackerKeys.length; j++) {
-      const cipherData = cipherChoices[cipherKeys[i]].data;
-      const cipherCostVal = cipherChoices[cipherKeys[i]].cost;
-      const trackerInterception = Math.floor((cipherData * trackerChoices[trackerKeys[j]].interception) / 100);
-      const trackerRisk = trackerChoices[trackerKeys[j]].risk;
-      const payoffText = `(${cipherData}D, ${cipherCostVal}C) | (${trackerInterception}I, ${trackerRisk}R)`;
-      ctx.fillText(payoffText, matrixX + j * colWidth + 20, matrixY + (i + 1) * rowHeight);
-    }
-  }
-
-  // Draw the legend below the matrix
-  const legendY = matrixY + (cipherKeys.length + 1) * rowHeight + 10;
-  ctx.fillStyle = CYBER_BLUE;
-  ctx.fillText("Legend:", matrixX, legendY);
-  ctx.fillStyle = WHITE;
-  ctx.fillText("D = Data Sent (Cipher), C = Cost (Cipher)", matrixX, legendY + 25);
-  ctx.fillText("I = Data Intercepted (Tracker), R = Identification Risk (Tracker)", matrixX, legendY + 50);
-}
-
-
-    
-      // Draw rows for Cipher choices and their payoff details
+      // Rows for Cipher choices and their payoffs
       const cipherKeys = Object.keys(cipherChoices);
       for (let i = 0; i < cipherKeys.length; i++) {
         ctx.fillText(cipherKeys[i], matrixX - 180, matrixY + (i + 1) * rowHeight);
@@ -441,7 +388,7 @@
           ctx.fillText(payoffText, matrixX + j * colWidth + 20, matrixY + (i + 1) * rowHeight);
         }
       }
-      // Draw the legend below the matrix
+      // Legend below the matrix
       const legendY = matrixY + (cipherKeys.length + 1) * rowHeight + 10;
       ctx.fillStyle = CYBER_BLUE;
       ctx.fillText("Legend:", matrixX, legendY);
@@ -449,8 +396,6 @@
       ctx.fillText("D = Data Sent (Cipher), C = Cost (Cipher)", matrixX, legendY + 25);
       ctx.fillText("I = Data Intercepted (Tracker), R = Identification Risk (Tracker)", matrixX, legendY + 50);
     }
-
-
 
     // ------------------------------
     // Typewriter Effect for Game Over Screen
