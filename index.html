@@ -401,6 +401,32 @@
       ctx.fillText("I = Data Intercepted (Tracker), R = Identification Risk (Tracker)", matrixX, legendY + 50);
     }
 
+
+  // Draw rows for Cipher choices and their payoff details
+  const cipherKeys = Object.keys(cipherChoices);
+  for (let i = 0; i < cipherKeys.length; i++) {
+    // Move the encryption choice labels further to the left
+    ctx.fillText(cipherKeys[i], matrixX - 210, matrixY + (i + 1) * rowHeight);
+    for (let j = 0; j < trackerKeys.length; j++) {
+      const cipherData = cipherChoices[cipherKeys[i]].data;
+      const cipherCostVal = cipherChoices[cipherKeys[i]].cost;
+      const trackerInterception = Math.floor((cipherData * trackerChoices[trackerKeys[j]].interception) / 100);
+      const trackerRisk = trackerChoices[trackerKeys[j]].risk;
+      const payoffText = `(${cipherData}D, ${cipherCostVal}C) | (${trackerInterception}I, ${trackerRisk}R)`;
+      ctx.fillText(payoffText, matrixX + j * colWidth + 20, matrixY + (i + 1) * rowHeight);
+    }
+  }
+
+  // Draw the legend below the matrix
+  const legendY = matrixY + (cipherKeys.length + 1) * rowHeight + 10;
+  ctx.fillStyle = CYBER_BLUE;
+  ctx.fillText("Legend:", matrixX, legendY);
+  ctx.fillStyle = WHITE;
+  ctx.fillText("D = Data Sent (Cipher), C = Cost (Cipher)", matrixX, legendY + 25);
+  ctx.fillText("I = Data Intercepted (Tracker), R = Identification Risk (Tracker)", matrixX, legendY + 50);
+}
+
+
     
       // Draw rows for Cipher choices and their payoff details
       const cipherKeys = Object.keys(cipherChoices);
