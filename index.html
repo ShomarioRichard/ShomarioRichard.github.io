@@ -1,515 +1,526 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cipher vs. Tracker</title>
-    <script defer src="https://pyscript.net/latest/pyscript.js"></script>
+  <meta charset="UTF-8">
+  <title>Cipher vs. Tracker: Game-Theoretic Privacy Battle</title>
+  <style>
+    canvas {
+      background: rgb(10, 10, 10);
+      display: block;
+      margin: 0 auto;
+    }
+  </style>
 </head>
-<body style="background-color: black; color: white; text-align: center;">
-    <h1>Loading Cipher vs. Tracker...</h1>
-    
-    <py-script>
-        import pygame
-        import random
-        import time
-        import os
-        from PIL import Image, ImageSequence  # PIL helps extract GIF frames
+<body>
+  <canvas id="gameCanvas" width="900" height="750"></canvas>
+  <script>
+    // Setup canvas and context
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    const WIDTH = canvas.width;
+    const HEIGHT = canvas.height;
 
+    // Colors (using CSS rgb strings)
+    const BLACK      = "rgb(10, 10, 10)";
+    const WHITE      = "rgb(255, 255, 255)";
+    const CYBER_BLUE = "rgb(50, 130, 255)";
+    const CYBER_GREEN= "rgb(50, 255, 130)";
+    const RED        = "rgb(200, 50, 50)";
+    const YELLOW     = "rgb(255, 200, 50)";
+    const GRAY       = "rgb(100, 100, 100)";
 
-        # **Initialize pygame first**
-        pygame.init()  # ✅ Required to initialize font module
+    // Fonts
+    const FONT = "28px Arial";
+    const BIG_FONT = "36px Arial";
 
+    // ------------------
+    // Global Game States
+    // ------------------
+    // Our state machine (possible states: roleSelection, textCrawl, gamePlaying, gameOverScreen)
+    let state = "roleSelection";
 
-        # Game window settings
-        WIDTH, HEIGHT = 900, 750
-        SCREEN = pygame.display.set_mode((WIDTH, HEIGHT))
-        pygame.display.set_caption("Cipher vs. Tracker: Game-Theoretic Privacy Battle")
+    // Game variables
+    let roundNumber = 1;
+    const totalRounds = 5;
+    let playerRole = null;
+    let aiRole = null;
+    let roundSummary = "";
+    let gameOver = false;
+    let waitingForNextRound = false;
 
-        # Define colors at the beginning to avoid NameError
-        BLACK = (10, 10, 10)
-        WHITE = (255, 255, 255)
-        CYBER_BLUE = (50, 130, 255)
-        CYBER_GREEN = (50, 255, 130)
-        RED = (200, 50, 50)
-        YELLOW = (255, 200, 50)
-        GRAY = (100, 100, 100)
+    // Cipher variables
+    let cipherCost = 0;
+    let cipherDataTransferred = 0;
+    const cipherCostLimit = 30;
+    const cipherDataTarget = 40;
 
-        # Fonts
-        FONT = pygame.font.Font(None, 28)
-        BIG_FONT = pygame.font.Font(None, 36)  # Fix missing font issue
+    // Tracker variables
+    let trackerIdentificationRisk = 0;
+    let trackerDataIntercepted = 0;
+    const trackerInterceptionTarget = 20;
+    const trackerIdentificationLimit = 15;
 
+    // Choices for each role (same data as in Python)
+    const cipherChoices = {
+      "Low Encryption":    { cost: 2, data: 10, security: 1 },
+      "Medium Encryption": { cost: 5, data: 7,  security: 2 },
+      "High Encryption":   { cost: 8, data: 4,  security: 3 }
+    };
 
-        # Text Crawl Function
-        # Define Fonts
-        FONT = pygame.font.Font(None, 28)
-        BIG_FONT = pygame.font.Font(None, 36)  # Fix missing font issue
+    const trackerChoices = {
+      "Minimum Attack": { interception: 30, risk: 1 },
+      "Medium Attack":  { interception: 50, risk: 3 },
+      "Maximum Attack": { interception: 80, risk: 5 }
+    };
 
-        def display_text_crawl():
-            """Displays a scrolling text crawl after role selection."""
-            print("[DEBUG] Entering text crawl...")  # Debugging check
+    // Variables to hold the current round’s choices
+    let cipherChoice = null;
+    let trackerChoice = null;
 
-            crawl_text = [
-            "Year 2084: The world is shackled in a grip of data-driven tyranny.",
-            "Megacorporations rule without question, their surveillance absolute.",
-            "Every transaction, whisper, and fleeting thought is recorded,",
-            "analyzed, controlled, and weaponized against the powerless.",
-            "",
-            "Cipher: A corporate enforcer, bound by contract and control.",
-            "Encrypt. Conceal. Execute. The system rewards loyalty and obedience.",
-            "",
-            "Tracker: A rogue hacker, fighting to expose the truth.",
-            "Intercept. Extract. Eradicate. The walls of secrecy must collapse.",
-            "",
-            "The war is fought in shadows—a battle of whispers and firewalls.",
-            "Every move carries risk. Every transmission could be the last.",
-            "The megacorp is watching. The noose tightens with each cycle.",
-            "",
-            "There is no escape. There is only the game.",
-            "",
-            "Press any key to begin..."
-        ]
+    // For the typewriter effect on the game‑over screen
+    let completedLines = [];
+    let gameOverReason = [];
 
+    // ------------------
+    // Mouse Events
+    // ------------------
+    let mouseX = 0;
+    let mouseY = 0;
+    canvas.addEventListener("mousemove", (e) => {
+      const rect = canvas.getBoundingClientRect();
+      mouseX = e.clientX - rect.left;
+      mouseY = e.clientY - rect.top;
+    });
 
+    // ------------------
+    // Button Class
+    // ------------------
+    class Button {
+      constructor(x, y, width, height, text, color, hoverColor) {
+        this.x = x;
+        this.y = y;
+        this.width = width;
+        this.height = height;
+        this.text = text;
+        this.color = color;
+        this.hoverColor = hoverColor;
+      }
+      draw(ctx) {
+        // Check if mouse is over this button
+        const isHover = (mouseX >= this.x && mouseX <= this.x + this.width &&
+                         mouseY >= this.y && mouseY <= this.y + this.height);
+        ctx.fillStyle = isHover ? this.hoverColor : this.color;
+        ctx.fillRect(this.x, this.y, this.width, this.height);
+        // Draw centered text
+        ctx.font = FONT;
+        ctx.fillStyle = WHITE;
+        const textWidth = ctx.measureText(this.text).width;
+        ctx.fillText(this.text, this.x + (this.width - textWidth) / 2, this.y + this.height/2 + 10);
+      }
+      isClicked(x, y) {
+        return (x >= this.x && x <= this.x + this.width &&
+                y >= this.y && y <= this.y + this.height);
+      }
+    }
 
+    // ------------------------------
+    // Role Selection Buttons
+    // ------------------------------
+    const cipherButton = new Button(250, 300, 200, 50, "Play as Cipher", CYBER_GREEN, CYBER_BLUE);
+    const trackerButton = new Button(450, 300, 200, 50, "Play as Tracker", RED, GRAY);
 
-            y_position = HEIGHT  # Start below the screen
-            speed = 2  # Scroll speed
-            last_text_y = y_position + len(crawl_text) * 40  # Track last line's position
+    // Decision buttons for game rounds
+    const cipherButtons = [
+      new Button(50, 320, 200, 50, "Low Encryption", RED, CYBER_BLUE),
+      new Button(300, 320, 200, 50, "Medium Encryption", RED, CYBER_BLUE),
+      new Button(550, 320, 200, 50, "High Encryption", RED, CYBER_BLUE)
+    ];
 
-            running = True
-            while running:
-                SCREEN.fill(BLACK)  # Clear screen
+    const trackerButtons = [
+      new Button(150, 320, 200, 50, "Minimum Attack", RED, GRAY),
+      new Button(380, 320, 200, 50, "Medium Attack", RED, GRAY),
+      new Button(610, 320, 200, 50, "Maximum Attack", RED, GRAY)
+    ];
 
-                for i, line in enumerate(crawl_text):
-                    text_surface = BIG_FONT.render(line, True, CYBER_BLUE)
-                    SCREEN.blit(text_surface, (WIDTH // 2 - text_surface.get_width() // 2, y_position + i * 40))
+    // ------------------------------
+    // Text Crawl Variables & Logic
+    // ------------------------------
+    const crawlText = [
+      "Year 2084: The world is shackled in a grip of data-driven tyranny.",
+      "Megacorporations rule without question, their surveillance absolute.",
+      "Every transaction, whisper, and fleeting thought is recorded,",
+      "analyzed, controlled, and weaponized against the powerless.",
+      "",
+      "Cipher: A corporate enforcer, bound by contract and control.",
+      "Encrypt. Conceal. Execute. The system rewards loyalty and obedience.",
+      "",
+      "Tracker: A rogue hacker, fighting to expose the truth.",
+      "Intercept. Extract. Eradicate. The walls of secrecy must collapse.",
+      "",
+      "The war is fought in shadows—a battle of whispers and firewalls.",
+      "Every move carries risk. Every transmission could be the last.",
+      "The megacorp is watching. The noose tightens with each cycle.",
+      "",
+      "There is no escape. There is only the game.",
+      "",
+      "Press any key to begin..."
+    ];
+    let crawlYPosition = HEIGHT;  // start off‐screen
+    const crawlSpeed = 2;
+    let crawlFinished = false;
 
-                pygame.display.flip()  # Update screen
+    // Allow keypress to skip the text crawl
+    document.addEventListener("keydown", (e) => {
+      if (state === "textCrawl") {
+        crawlFinished = true;
+      }
+    });
 
-                y_position -= speed  # Move text up
-                last_text_y -= speed  # Move last text up
+    // ------------------------------
+    // Mouse Clicks (for Buttons)
+    // ------------------------------
+    canvas.addEventListener("mousedown", (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      const clickY = e.clientY - rect.top;
 
-                print(f"[DEBUG] Last line y-position: {last_text_y}")  # Debugging check
-
-                # Stop the crawl when the last line moves off the screen
-                if last_text_y < -40:
-                    print("[DEBUG] Text crawl finished.")
-                    return
-
-                # Allow skipping the crawl
-                for event in pygame.event.get():
-                    if event.type == pygame.QUIT:
-                        pygame.quit()
-                        exit()
-                    elif event.type == pygame.KEYDOWN:  # Press any key to skip
-                        print("[DEBUG] Text crawl skipped by user.")
-                        return
-
-                time.sleep(0.07)  # Adjust crawl speed
-
-
-        # Game variables
-        round_number = 1
-        total_rounds = 5
-        player_score = 0
-        ai_score = 0
-        game_over = False
-        player_role = None  
-        ai_role = None
-        round_summary = ""
-        waiting_for_next_round = False
-        role_selected = False  # Ensures the text crawl only runs once
-
-        # New gameplay variables
-        cipher_cost = 0  # Total encryption cost
-        cipher_data_transferred = 0  # Data successfully sent
-        cipher_cost_limit = 30  # Max budget for encryption
-        cipher_data_target = 40  # Data needed to win
-
-        tracker_identification_risk = 0  # Risk of being identified
-        tracker_data_intercepted = 0  # Total intercepted data
-        tracker_interception_target = 20  # Amount of data needed to win
-        tracker_identification_limit = 15  # Max risk before being exposed
-
-        # Choices with encryption levels
-        cipher_choices = {
-            "Low Encryption": {"cost": 2, "data": 10, "security": 1},
-            "Medium Encryption": {"cost": 5, "data": 7, "security": 2},
-            "High Encryption": {"cost": 8, "data": 4, "security": 3}
+      if (state === "roleSelection") {
+        if (cipherButton.isClicked(clickX, clickY)) {
+          playerRole = "Cipher";
+          aiRole = "Tracker";
+          state = "textCrawl";
+          console.log("[DEBUG] Player selected Cipher");
+        } else if (trackerButton.isClicked(clickX, clickY)) {
+          playerRole = "Tracker";
+          aiRole = "Cipher";
+          state = "textCrawl";
+          console.log("[DEBUG] Player selected Tracker");
         }
-
-        # Choices with interception levels
-        tracker_choices = {
-            "Minimum Attack": {"interception": 30, "risk": 1},
-            "Medium Attack": {"interception": 50, "risk": 3},
-            "Maximum Attack": {"interception": 80, "risk": 5}
+      }
+      else if (state === "gamePlaying") {
+        if (!gameOver && !waitingForNextRound) {
+          if (playerRole === "Cipher" && cipherChoice === null) {
+            // Check which cipher button was clicked
+            for (let i = 0; i < cipherButtons.length; i++) {
+              if (cipherButtons[i].isClicked(clickX, clickY)) {
+                cipherChoice = Object.keys(cipherChoices)[i];
+                // AI makes its decision for Tracker
+                trackerChoice = aiTrackerDecision();
+                console.log("[DEBUG] Cipher choice: " + cipherChoice + ", Tracker AI choice: " + trackerChoice);
+                processRound();
+              }
+            }
+          }
+          else if (playerRole === "Tracker") {
+            // For Tracker, have AI choose Cipher if not already chosen
+            if (cipherChoice === null) {
+              cipherChoice = aiCipherDecision();
+              console.log("[DEBUG] AI Cipher choice: " + cipherChoice);
+            }
+            if (trackerChoice === null) {
+              for (let i = 0; i < trackerButtons.length; i++) {
+                if (trackerButtons[i].isClicked(clickX, clickY)) {
+                  trackerChoice = Object.keys(trackerChoices)[i];
+                  console.log("[DEBUG] Tracker choice: " + trackerChoice);
+                  processRound();
+                }
+              }
+            }
+          }
         }
-
-
-        # Button Class
-        class Button:
-            def __init__(self, x, y, width, height, text, color, hover_color):
-                self.rect = pygame.Rect(x, y, width, height)
-                self.text = text
-                self.color = color
-                self.hover_color = hover_color
-                self.font = FONT
-
-            def draw(self, screen):
-                mouse_pos = pygame.mouse.get_pos()
-                pygame.draw.rect(screen, self.hover_color if self.rect.collidepoint(mouse_pos) else self.color, self.rect)
-                text_surface = self.font.render(self.text, True, WHITE)
-                text_rect = text_surface.get_rect(center=self.rect.center)
-                screen.blit(text_surface, text_rect)
-
-            def is_clicked(self, event):
-                return event.type == pygame.MOUSEBUTTONDOWN and self.rect.collidepoint(event.pos)
-
-        # Selection Screen
-        cipher_button = Button(250, 300, 200, 50, "Play as Cipher", CYBER_GREEN, CYBER_BLUE)
-        tracker_button = Button(450, 300, 200, 50, "Play as Tracker", RED, GRAY)
-
-        # Game Buttons
-        cipher_buttons = [
-            Button(50, 320, 200, 50, "Low Encryption", RED, CYBER_BLUE),
-            Button(300, 320, 200, 50, "Medium Encryption", RED, CYBER_BLUE),
-            Button(550, 320, 200, 50, "High Encryption", RED, CYBER_BLUE)
-        ]
-
-        tracker_buttons = [
-            Button(150, 320, 200, 50, "Minimum Attack", RED, GRAY),
-            Button(380, 320, 200, 50, "Medium Attack", RED, GRAY),
-            Button(610, 320, 200, 50, "Maximum Attack", RED, GRAY)
-        ]
-
-
-        # AI Decision Logic
-        def ai_tracker_decision():
-            """AI strategy for Tracker."""
-            return random.choice(list(tracker_choices.keys()))
-
-        def ai_cipher_decision():
-            """AI strategy for Cipher."""
-            return random.choice(list(cipher_choices.keys()))
-
-        def draw_payoff_matrix():
-            """Displays the Nash-style payoff matrix with cost, data sent, interception, and risk."""
-            matrix_x = 220  
-            matrix_y = 450  
-            row_height = 50  
-            col_width = 220
-
-            # Header row (Cipher / Tracker Label)
-            header_text = FONT.render("Cipher / Tracker", True, WHITE)
-            SCREEN.blit(header_text, (matrix_x - 140, matrix_y - 40))
-
-            # Column Headers (Tracker choices)
-            for j, t_choice in enumerate(tracker_choices.keys()):
-                header = FONT.render(t_choice, True, WHITE)
-                SCREEN.blit(header, (matrix_x + j * col_width + 50, matrix_y))
-
-            # Row Labels (Cipher encryption choices)
-            for i, c_choice in enumerate(cipher_choices.keys()):
-                row_label = FONT.render(c_choice, True, WHITE)
-                SCREEN.blit(row_label, (matrix_x - 180, matrix_y + (i + 1) * row_height))
-
-                for j, t_choice in enumerate(tracker_choices.keys()):
-                    # Extract decision values
-                    cipher_data = cipher_choices[c_choice]["data"]
-                    cipher_cost = cipher_choices[c_choice]["cost"]
-                    tracker_interception = (cipher_data * tracker_choices[t_choice]["interception"]) // 100
-                    tracker_risk = tracker_choices[t_choice]["risk"]
-
-                    # Display detailed information
-                    payoff_text = FONT.render(f"({cipher_data}D, {cipher_cost}C) | ({tracker_interception}I, {tracker_risk}R)", True, WHITE)
-                    SCREEN.blit(payoff_text, (matrix_x + j * col_width + 20, matrix_y + (i + 1) * row_height))
-
-            # **Legend Below the Matrix**
-            legend_y = matrix_y + (len(cipher_choices) + 1) * row_height + 10  # Adjusted for visibility
-
-            legend_text1 = FONT.render("Legend:", True, CYBER_BLUE)
-            legend_text2 = FONT.render("D = Data Sent (Cipher), C = Cost (Cipher)", True, WHITE)
-            legend_text3 = FONT.render("I = Data Intercepted (Tracker), R = Identification Risk (Tracker)", True, WHITE)
-
-            SCREEN.blit(legend_text1, (matrix_x, legend_y))
-            SCREEN.blit(legend_text2, (matrix_x, legend_y + 25))
-            SCREEN.blit(legend_text3, (matrix_x, legend_y + 50))
-
-
-        def typewriter_effect(text, x, y, color=WHITE, delay=50):
-            """Displays text with a typewriter effect while keeping previous text visible."""
-            displayed_text = ""
-            
-            for char in text:
-                displayed_text += char
-                
-                SCREEN.fill(BLACK)  # **Clear screen only once before drawing everything**
-
-                # **Redraw "GAME OVER" at the top**
-                game_over_text = BIG_FONT.render("GAME OVER", True, CYBER_BLUE)
-                SCREEN.blit(game_over_text, ((WIDTH - game_over_text.get_width()) // 2, 100))
-
-                # **Redraw all previous lines in WHITE (unaltered)**
-                y_offset = 200
-                for prev_line in completed_lines:
-                    text_surface = FONT.render(prev_line, True, WHITE)  # Ensure previous lines stay white
-                    SCREEN.blit(text_surface, (x, y_offset))
-                    y_offset += 40  # Move down per line
-
-                # **Render the current line as it types out (also in WHITE)**
-                text_surface = FONT.render(displayed_text, True, WHITE)
-                SCREEN.blit(text_surface, (x, y_offset))
-
-                pygame.display.flip()
-                pygame.time.wait(delay)  # Adjust speed
-
-            # **Store the finished line to keep it permanently**
-            completed_lines.append(displayed_text)
-
-
-        def wait_for_keypress():
-            """Waits for the user to press a key before continuing."""
-            while True:
-                for event in pygame.event.get():
-                    if event.type == pygame.QUIT:
-                        pygame.quit()
-                        exit()
-                    elif event.type == pygame.KEYDOWN:  # Proceed on key press
-                        return
-
-
-        def show_game_over_screen():
-            """Displays the game over screen with a typewriter text effect."""
-            pygame.mixer.music.stop()  # Stop any music
-            SCREEN.fill(BLACK)
-
-            global completed_lines
-            completed_lines = []  # Reset for a new game-over screen
-
-            # **Centering for proper alignment**
-            text_x = WIDTH // 2 - 300  # Fixed left alignment, avoiding shifts
-
-            # **Type out the round summary first**
-            typewriter_effect(round_summary, text_x, 200, CYBER_BLUE, 50)
-
-            # **Then type out each line of the game-over reason**
-            y_offset = 250
-            for line in game_over_reason:
-                typewriter_effect(line, text_x, y_offset, WHITE, 40)  # Keep color WHITE for all lines
-                y_offset += 40  # Move down for next line
-
-            # **Final stats (Displayed instantly, no typing effect)**
-            cipher_data_text = FONT.render(f"Cipher Data Sent: {cipher_data_transferred}/{cipher_data_target}", True, CYBER_GREEN)
-            cipher_cost_text = FONT.render(f"Cipher Cost: {cipher_cost}/{cipher_cost_limit}", True, CYBER_BLUE)
-            tracker_data_text = FONT.render(f"Tracker Data Intercepted: {tracker_data_intercepted}/{tracker_interception_target}", True, RED)
-            tracker_risk_text = FONT.render(f"Tracker Identification Risk: {tracker_identification_risk}/{tracker_identification_limit}", True, YELLOW)
-
-            SCREEN.blit(cipher_data_text, (text_x, HEIGHT // 2 + 80))
-            SCREEN.blit(cipher_cost_text, (text_x, HEIGHT // 2 + 110))
-            SCREEN.blit(tracker_data_text, (text_x, HEIGHT // 2 + 140))
-            SCREEN.blit(tracker_risk_text, (text_x, HEIGHT // 2 + 170))
-
-            pygame.display.flip()
-
-
-
-            # **Wait for player input before exiting**
-            #wait_for_keypress()
-            #pygame.quit()
-            #exit()
-
-
-
-
-
-
-
-
-
-
-
-        # Main Game Loop
-        running = True
-        cipher_choice = None
-        tracker_choice = None
-
-        while running:
-            SCREEN.fill(BLACK)
-
-            if player_role is None:
-                title_text = FONT.render("Choose Your Role", True, WHITE)
-                SCREEN.blit(title_text, (350, 250))
-                cipher_button.draw(SCREEN)
-                tracker_button.draw(SCREEN)
-
-                for event in pygame.event.get():
-                    if event.type == pygame.QUIT:
-                        running = False
-                    if cipher_button.is_clicked(event):
-                        player_role = "Cipher"
-                        ai_role = "Tracker"
-                        role_selected = True  # ✅ Set to TRUE here
-                    elif tracker_button.is_clicked(event):
-                        player_role = "Tracker"
-                        ai_role = "Cipher"
-                        role_selected = True  # ✅ Set to TRUE here
-
-            else:
-
-                if role_selected:
-                    print("[DEBUG] Role selected, triggering text crawl...")
-                    display_text_crawl()
-                    role_selected = False  # Prevent re-running
-
-                draw_payoff_matrix()
-
-
-                # Displaying game stats
-                SCREEN.blit(FONT.render(f"Round {round_number}/{total_rounds}", True, WHITE), (30, 30))
-                SCREEN.blit(FONT.render(f"Cipher Data Sent: {cipher_data_transferred}/{cipher_data_target}", True, CYBER_GREEN), (30, 70))
-                SCREEN.blit(FONT.render(f"Cipher Cost: {cipher_cost}/{cipher_cost_limit}", True, CYBER_BLUE), (30, 100))
-                SCREEN.blit(FONT.render(f"Tracker Data Intercepted: {tracker_data_intercepted}/{tracker_interception_target}", True, RED), (30, 140))
-                SCREEN.blit(FONT.render(f"Tracker Identification Risk: {tracker_identification_risk}/{tracker_identification_limit}", True, YELLOW), (30, 170))
-                
-                # Display round summary
-                round_summary_text = FONT.render(round_summary, True, WHITE)
-                text_width = round_summary_text.get_width()
-                SCREEN.blit(round_summary_text, ((WIDTH - text_width) // 2, 200))
-
-                # Draw buttons
-                if player_role == "Cipher":
-                    for button in cipher_buttons:
-                        button.draw(SCREEN)
-                elif player_role == "Tracker":
-                    for button in tracker_buttons:
-                        button.draw(SCREEN)
-
-                for event in pygame.event.get():
-                    if event.type == pygame.QUIT:
-                        running = False
-
-                    if not game_over and not waiting_for_next_round:
-                        # If player is Cipher, they select first
-                        if player_role == "Cipher" and cipher_choice is None:
-                            for i, button in enumerate(cipher_buttons):
-                                if button.is_clicked(event):
-                                    cipher_choice = list(cipher_choices.keys())[i]
-                                    tracker_choice = ai_tracker_decision()  # AI selects after Cipher decides
-
-                        # If player is Tracker, AI selects Cipher first, then waits for Tracker input
-                        elif player_role == "Tracker" and cipher_choice is None:
-                            cipher_choice = ai_cipher_decision()  # AI chooses encryption before player acts
-
-                        elif player_role == "Tracker" and tracker_choice is None and cipher_choice is not None:
-                            for i, button in enumerate(tracker_buttons):
-                                if button.is_clicked(event):
-                                    tracker_choice = list(tracker_choices.keys())[i]
-
-                        if cipher_choice is not None and tracker_choice is not None:
-                            # Apply cipher decision
-                            cipher_data_transferred += cipher_choices[cipher_choice]["data"]
-                            cipher_cost += cipher_choices[cipher_choice]["cost"]
-
-                            # Apply tracker decision
-                            intercepted_data = (cipher_choices[cipher_choice]["data"] * tracker_choices[tracker_choice]["interception"]) // 100
-                            tracker_data_intercepted += intercepted_data
-                            tracker_identification_risk += tracker_choices[tracker_choice]["risk"]
-
-                            round_summary = f"Cipher: {cipher_choice} | Tracker: {tracker_choice} | Data Sent: {cipher_choices[cipher_choice]['data']} | Data Intercepted: {intercepted_data}"
-
-                            waiting_for_next_round = True  
-
-                if waiting_for_next_round:
-                    pygame.display.flip()
-                    #time.sleep(1)
-
-                    # Increment round number BEFORE checking game-over conditions
-                    round_number += 1  
-
-                    # Check if a player has won or lost
-                    if cipher_data_transferred >= cipher_data_target and cipher_cost <= cipher_cost_limit:
-                        round_summary = "Cipher Triumphs! The firewall holds."
-                        game_over_reason = [
-                            "Cipher successfully encrypted and transmitted the data.",
-                            "The megacorp’s secrets remain locked away in its fortress.",
-                            "For now, the machine continues grinding, unquestioned, unchallenged."
-                        ]
-                        game_over = True
-
-                    elif tracker_data_intercepted >= tracker_interception_target and tracker_identification_risk < tracker_identification_limit:
-                        round_summary = "Tracker Wins! The truth escapes… for now."
-                        game_over_reason = [
-                            "The intercepted data leaks to the underground network.",
-                            "The people glimpse the truth before the megacorp clamps down.",
-                            "New encryption protocols go live. The cycle continues."
-                        ]
-                        game_over = True
-
-                    elif cipher_cost > cipher_cost_limit:
-                        round_summary = "Game Over! Cipher is financially liquidated."
-                        game_over_reason = [
-                            "Cipher’s reckless spending has exceeded budget.",
-                            "The megacorp does not tolerate inefficiency.",
-                            "Debts are forcibly collected. Identity revoked.",
-                            "Assigned a serial number, they serve as a digital slave.",
-                            "Their mind, uploaded into a corporate mainframe, encrypts data forever."
-                        ]
-                        game_over = True
-
-                    elif tracker_identification_risk >= tracker_identification_limit:
-                        round_summary = "Game Over! Tracker has been terminated."
-                        game_over_reason = [
-                            "Tracker’s aggressive hacking triggered too many security alarms.",
-                            "Synthetic enforcers breach their hideout in minutes.",
-                            "The last thing they see is a corporate logo on a neural disruptor.",
-                            "Their mind is extracted, rewritten, and turned into an AI slave.",
-                            "They now hunt the very kind of dissent they once fought for."
-                        ]
-                        game_over = True
-
-                    # If rounds exceed total allowed rounds, declare a brutal corporate stalemate
-                    if round_number > total_rounds and not game_over:
-                        round_summary = "Game Over! The war grinds on."
-                        game_over_reason = [
-                            "Neither Cipher nor Tracker achieved their goal in time.",
-                            "The megacorp remains unshaken, its surveillance expanding.",
-                            "The resistance fractures, splinters, fades into whispers in the dark.",
-                            "The war was never meant to be won."
-                        ]
-                        game_over = True
-
-
-                    # If rounds exceed total allowed rounds, declare a brutal corporate stalemate
-                    if round_number > total_rounds and not game_over:
-                        round_summary = "Game Over! The war grinds on."
-                        game_over_reason = (
-                            "Neither Cipher nor Tracker achieved their goal in time.\n"
-                            "The megacorp remains, unshaken, its surveillance expanding.\n"
-                            "The resistance **fractures, splinters**, fades into whispers in the dark.\n"
-                            "The war was never meant to be won."
-                        )
-                        game_over = True
-
-
-                    if game_over:
-                        show_game_over_screen()  # Call the black-screen game over function
-
-
-
-                    # Reset choices for next round if the game is not over
-                    if not game_over:
-                        cipher_choice, tracker_choice = None, None  
-                        waiting_for_next_round = False  
-
-
-
-
-
-
-            pygame.display.flip()
-
-        pygame.quit()
-    </py-script>
+      }
+    });
+
+    // ------------------------------
+    // AI Decision Functions
+    // ------------------------------
+    function aiTrackerDecision() {
+      const keys = Object.keys(trackerChoices);
+      return keys[Math.floor(Math.random() * keys.length)];
+    }
+    function aiCipherDecision() {
+      const keys = Object.keys(cipherChoices);
+      return keys[Math.floor(Math.random() * keys.length)];
+    }
+
+    // ------------------------------
+    // Process a Game Round
+    // ------------------------------
+    function processRound() {
+      if (cipherChoice && trackerChoice) {
+        // Update Cipher stats
+        cipherDataTransferred += cipherChoices[cipherChoice].data;
+        cipherCost += cipherChoices[cipherChoice].cost;
+
+        // Update Tracker stats
+        const interceptedData = Math.floor((cipherChoices[cipherChoice].data * trackerChoices[trackerChoice].interception) / 100);
+        trackerDataIntercepted += interceptedData;
+        trackerIdentificationRisk += trackerChoices[trackerChoice].risk;
+
+        roundSummary = `Cipher: ${cipherChoice} | Tracker: ${trackerChoice} | Data Sent: ${cipherChoices[cipherChoice].data} | Data Intercepted: ${interceptedData}`;
+        waitingForNextRound = true;
+
+        // Delay briefly then increment the round and check for game-over conditions
+        setTimeout(() => {
+          roundNumber++;
+          checkGameOverConditions();
+          if (!gameOver) {
+            // Reset for next round
+            cipherChoice = null;
+            trackerChoice = null;
+            waitingForNextRound = false;
+          }
+        }, 1000);
+      }
+    }
+
+    // ------------------------------
+    // Check Game Over Conditions
+    // ------------------------------
+    function checkGameOverConditions() {
+      if (cipherDataTransferred >= cipherDataTarget && cipherCost <= cipherCostLimit) {
+        roundSummary = "Cipher Triumphs! The firewall holds.";
+        gameOverReason = [
+          "Cipher successfully encrypted and transmitted the data.",
+          "The megacorp’s secrets remain locked away in its fortress.",
+          "For now, the machine continues grinding, unquestioned, unchallenged."
+        ];
+        gameOver = true;
+        state = "gameOverScreen";
+      }
+      else if (trackerDataIntercepted >= trackerInterceptionTarget && trackerIdentificationRisk < trackerIdentificationLimit) {
+        roundSummary = "Tracker Wins! The truth escapes… for now.";
+        gameOverReason = [
+          "The intercepted data leaks to the underground network.",
+          "The people glimpse the truth before the megacorp clamps down.",
+          "New encryption protocols go live. The cycle continues."
+        ];
+        gameOver = true;
+        state = "gameOverScreen";
+      }
+      else if (cipherCost > cipherCostLimit) {
+        roundSummary = "Game Over! Cipher is financially liquidated.";
+        gameOverReason = [
+          "Cipher’s reckless spending has exceeded budget.",
+          "The megacorp does not tolerate inefficiency.",
+          "Debts are forcibly collected. Identity revoked.",
+          "Assigned a serial number, they serve as a digital slave.",
+          "Their mind, uploaded into a corporate mainframe, encrypts data forever."
+        ];
+        gameOver = true;
+        state = "gameOverScreen";
+      }
+      else if (trackerIdentificationRisk >= trackerIdentificationLimit) {
+        roundSummary = "Game Over! Tracker has been terminated.";
+        gameOverReason = [
+          "Tracker’s aggressive hacking triggered too many security alarms.",
+          "Synthetic enforcers breach their hideout in minutes.",
+          "The last thing they see is a corporate logo on a neural disruptor.",
+          "Their mind is extracted, rewritten, and turned into an AI slave.",
+          "They now hunt the very kind of dissent they once fought for."
+        ];
+        gameOver = true;
+        state = "gameOverScreen";
+      }
+      else if (roundNumber > totalRounds && !gameOver) {
+        roundSummary = "Game Over! The war grinds on.";
+        gameOverReason = [
+          "Neither Cipher nor Tracker achieved their goal in time.",
+          "The megacorp remains unshaken, its surveillance expanding.",
+          "The resistance fractures, splinters, fades into whispers in the dark.",
+          "The war was never meant to be won."
+        ];
+        gameOver = true;
+        state = "gameOverScreen";
+      }
+    }
+
+    // ------------------------------
+    // Draw the Payoff Matrix
+    // ------------------------------
+    function drawPayoffMatrix() {
+      const matrixX = 220;
+      const matrixY = 450;
+      const rowHeight = 50;
+      const colWidth = 220;
+
+      ctx.font = FONT;
+      ctx.fillStyle = WHITE;
+      // Header label
+      ctx.fillText("Cipher / Tracker", matrixX - 140, matrixY - 40);
+
+      // Column headers for Tracker choices
+      const trackerKeys = Object.keys(trackerChoices);
+      for (let j = 0; j < trackerKeys.length; j++) {
+        ctx.fillText(trackerKeys[j], matrixX + j * colWidth + 50, matrixY);
+      }
+
+      // Rows for Cipher choices and their payoffs
+      const cipherKeys = Object.keys(cipherChoices);
+      for (let i = 0; i < cipherKeys.length; i++) {
+        ctx.fillText(cipherKeys[i], matrixX - 180, matrixY + (i + 1) * rowHeight);
+        for (let j = 0; j < trackerKeys.length; j++) {
+          const cipherData = cipherChoices[cipherKeys[i]].data;
+          const cipherCostVal = cipherChoices[cipherKeys[i]].cost;
+          const trackerInterception = Math.floor((cipherData * trackerChoices[trackerKeys[j]].interception) / 100);
+          const trackerRisk = trackerChoices[trackerKeys[j]].risk;
+          const payoffText = `(${cipherData}D, ${cipherCostVal}C) | (${trackerInterception}I, ${trackerRisk}R)`;
+          ctx.fillText(payoffText, matrixX + j * colWidth + 20, matrixY + (i + 1) * rowHeight);
+        }
+      }
+      // Legend below the matrix
+      const legendY = matrixY + (cipherKeys.length + 1) * rowHeight + 10;
+      ctx.fillStyle = CYBER_BLUE;
+      ctx.fillText("Legend:", matrixX, legendY);
+      ctx.fillStyle = WHITE;
+      ctx.fillText("D = Data Sent (Cipher), C = Cost (Cipher)", matrixX, legendY + 25);
+      ctx.fillText("I = Data Intercepted (Tracker), R = Identification Risk (Tracker)", matrixX, legendY + 50);
+    }
+
+    // ------------------------------
+    // Typewriter Effect for Game Over Screen
+    // ------------------------------
+    function typewriterEffect(text, x, y, color, delay, callback) {
+      let displayedText = "";
+      let i = 0;
+      function type() {
+        if (i < text.length) {
+          displayedText += text[i];
+          i++;
+          drawGameOverScreen(); // redraw updated game-over screen
+          setTimeout(type, delay);
+        } else {
+          completedLines.push(displayedText);
+          if (callback) callback();
+        }
+      }
+      type();
+    }
+
+    // Draw the Game Over screen (called repeatedly during the typewriter effect)
+    function drawGameOverScreen() {
+      ctx.fillStyle = BLACK;
+      ctx.fillRect(0, 0, WIDTH, HEIGHT);
+
+      // "GAME OVER" heading
+      ctx.font = BIG_FONT;
+      ctx.fillStyle = CYBER_BLUE;
+      const gameOverText = "GAME OVER";
+      const gameOverTextWidth = ctx.measureText(gameOverText).width;
+      ctx.fillText(gameOverText, (WIDTH - gameOverTextWidth) / 2, 100);
+
+      // Display completed lines from typewriter effect
+      ctx.font = FONT;
+      ctx.fillStyle = WHITE;
+      let yOffset = 200;
+      for (let line of completedLines) {
+        ctx.fillText(line, WIDTH/2 - 300, yOffset);
+        yOffset += 40;
+      }
+      // Also display the round summary (if not yet fully typed)
+      ctx.fillText(roundSummary, WIDTH/2 - ctx.measureText(roundSummary).width / 2, yOffset);
+
+      // Final stats (displayed instantly)
+      ctx.fillText(`Cipher Data Sent: ${cipherDataTransferred}/${cipherDataTarget}`, WIDTH/2 - 300, HEIGHT/2 + 80);
+      ctx.fillText(`Cipher Cost: ${cipherCost}/${cipherCostLimit}`, WIDTH/2 - 300, HEIGHT/2 + 110);
+      ctx.fillText(`Tracker Data Intercepted: ${trackerDataIntercepted}/${trackerInterceptionTarget}`, WIDTH/2 - 300, HEIGHT/2 + 140);
+      ctx.fillText(`Tracker Identification Risk: ${trackerIdentificationRisk}/${trackerIdentificationLimit}`, WIDTH/2 - 300, HEIGHT/2 + 170);
+    }
+
+    // Start the typewriter effect (chain the round summary and game-over reason lines)
+    function showGameOverScreen() {
+      completedLines = []; // reset
+      const textX = WIDTH/2 - 300;
+      typewriterEffect(roundSummary, textX, 200, CYBER_BLUE, 50, () => {
+        let yOffset = 250;
+        let i = 0;
+        function typeNextLine() {
+          if (i < gameOverReason.length) {
+            typewriterEffect(gameOverReason[i], textX, yOffset, WHITE, 40, () => {
+              yOffset += 40;
+              i++;
+              typeNextLine();
+            });
+          }
+        }
+        typeNextLine();
+      });
+    }
+
+    // ------------------------------
+    // Main Update and Draw Functions
+    // ------------------------------
+    function update() {
+      if (state === "textCrawl") {
+        crawlYPosition -= crawlSpeed;
+        // When the last line scrolls off or the user skipped:
+        if (crawlYPosition + crawlText.length * 40 < -40 || crawlFinished) {
+          state = "gamePlaying";
+        }
+      }
+    }
+
+    function draw() {
+      // Clear the canvas
+      ctx.fillStyle = BLACK;
+      ctx.fillRect(0, 0, WIDTH, HEIGHT);
+
+      if (state === "roleSelection") {
+        ctx.font = FONT;
+        ctx.fillStyle = WHITE;
+        ctx.fillText("Choose Your Role", 350, 250);
+        cipherButton.draw(ctx);
+        trackerButton.draw(ctx);
+      }
+      else if (state === "textCrawl") {
+        ctx.font = BIG_FONT;
+        ctx.fillStyle = CYBER_BLUE;
+        for (let i = 0; i < crawlText.length; i++) {
+          const textWidth = ctx.measureText(crawlText[i]).width;
+          ctx.fillText(crawlText[i], WIDTH/2 - textWidth/2, crawlYPosition + i * 40);
+        }
+      }
+      else if (state === "gamePlaying") {
+        // Draw the payoff matrix
+        drawPayoffMatrix();
+
+        // Display game stats
+        ctx.font = FONT;
+        ctx.fillStyle = WHITE;
+        ctx.fillText(`Round ${roundNumber}/${totalRounds}`, 30, 30);
+        ctx.fillStyle = CYBER_GREEN;
+        ctx.fillText(`Cipher Data Sent: ${cipherDataTransferred}/${cipherDataTarget}`, 30, 70);
+        ctx.fillStyle = CYBER_BLUE;
+        ctx.fillText(`Cipher Cost: ${cipherCost}/${cipherCostLimit}`, 30, 100);
+        ctx.fillStyle = RED;
+        ctx.fillText(`Tracker Data Intercepted: ${trackerDataIntercepted}/${trackerInterceptionTarget}`, 30, 140);
+        ctx.fillStyle = YELLOW;
+        ctx.fillText(`Tracker Identification Risk: ${trackerIdentificationRisk}/${trackerIdentificationLimit}`, 30, 170);
+
+        // Display round summary (centered)
+        ctx.fillStyle = WHITE;
+        const summaryWidth = ctx.measureText(roundSummary).width;
+        ctx.fillText(roundSummary, (WIDTH - summaryWidth) / 2, 200);
+
+        // Draw decision buttons depending on the player's role
+        if (playerRole === "Cipher") {
+          cipherButtons.forEach(btn => btn.draw(ctx));
+        }
+        else if (playerRole === "Tracker") {
+          trackerButtons.forEach(btn => btn.draw(ctx));
+        }
+      }
+      else if (state === "gameOverScreen") {
+        drawGameOverScreen();
+      }
+    }
+
+    function mainLoop() {
+      update();
+      draw();
+      requestAnimationFrame(mainLoop);
+    }
+    mainLoop();
+  </script>
 </body>
 </html>
