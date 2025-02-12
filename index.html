@@ -4,21 +4,40 @@
   <meta charset="UTF-8">
   <title>Cipher vs. Tracker: Game-Theoretic Privacy Battle</title>
   <style>
-    canvas {
+    /* Ensure the page and canvas fill the whole window */
+    html, body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      height: 100%;
+      width: 100%;
       background: rgb(10, 10, 10);
+    }
+    canvas {
       display: block;
-      margin: 0 auto;
     }
   </style>
 </head>
 <body>
-  <canvas id="gameCanvas" width="900" height="750"></canvas>
+  <canvas id="gameCanvas"></canvas>
   <script>
     // Setup canvas and context
     const canvas = document.getElementById("gameCanvas");
     const ctx = canvas.getContext("2d");
-    const WIDTH = canvas.width;
-    const HEIGHT = canvas.height;
+    
+    // Dynamically set canvas dimensions to fill the window
+    let WIDTH = window.innerWidth;
+    let HEIGHT = window.innerHeight;
+    canvas.width = WIDTH;
+    canvas.height = HEIGHT;
+
+    // Update canvas size on window resize
+    window.addEventListener("resize", () => {
+      WIDTH = window.innerWidth;
+      HEIGHT = window.innerHeight;
+      canvas.width = WIDTH;
+      canvas.height = HEIGHT;
+    });
 
     // Colors (using CSS rgb strings)
     const BLACK      = "rgb(10, 10, 10)";
@@ -36,7 +55,7 @@
     // ------------------
     // Global Game States
     // ------------------
-    // Our state machine (possible states: roleSelection, textCrawl, gamePlaying, gameOverScreen)
+    // State machine: roleSelection, textCrawl, gamePlaying, gameOverScreen
     let state = "roleSelection";
 
     // Game variables
@@ -60,7 +79,7 @@
     const trackerInterceptionTarget = 20;
     const trackerIdentificationLimit = 15;
 
-    // Choices for each role (same data as in Python)
+    // Choices for each role
     const cipherChoices = {
       "Low Encryption":    { cost: 2, data: 10, security: 1 },
       "Medium Encryption": { cost: 5, data: 7,  security: 2 },
@@ -126,20 +145,21 @@
     // ------------------------------
     // Role Selection Buttons
     // ------------------------------
-    const cipherButton = new Button(250, 300, 200, 50, "Play as Cipher", CYBER_GREEN, CYBER_BLUE);
-    const trackerButton = new Button(450, 300, 200, 50, "Play as Tracker", RED, GRAY);
+    // (Positions may shift as the canvas is now full screen.)
+    const cipherButton = new Button(WIDTH * 0.28, HEIGHT * 0.4, 200, 50, "Play as Cipher", CYBER_GREEN, CYBER_BLUE);
+    const trackerButton = new Button(WIDTH * 0.55, HEIGHT * 0.4, 200, 50, "Play as Tracker", RED, GRAY);
 
     // Decision buttons for game rounds
     const cipherButtons = [
-      new Button(50, 320, 200, 50, "Low Encryption", RED, CYBER_BLUE),
-      new Button(300, 320, 200, 50, "Medium Encryption", RED, CYBER_BLUE),
-      new Button(550, 320, 200, 50, "High Encryption", RED, CYBER_BLUE)
+      new Button(WIDTH * 0.06, HEIGHT * 0.43, 200, 50, "Low Encryption", RED, CYBER_BLUE),
+      new Button(WIDTH * 0.33, HEIGHT * 0.43, 200, 50, "Medium Encryption", RED, CYBER_BLUE),
+      new Button(WIDTH * 0.60, HEIGHT * 0.43, 200, 50, "High Encryption", RED, CYBER_BLUE)
     ];
 
     const trackerButtons = [
-      new Button(150, 320, 200, 50, "Minimum Attack", RED, GRAY),
-      new Button(380, 320, 200, 50, "Medium Attack", RED, GRAY),
-      new Button(610, 320, 200, 50, "Maximum Attack", RED, GRAY)
+      new Button(WIDTH * 0.17, HEIGHT * 0.43, 200, 50, "Minimum Attack", RED, GRAY),
+      new Button(WIDTH * 0.41, HEIGHT * 0.43, 200, 50, "Medium Attack", RED, GRAY),
+      new Button(WIDTH * 0.64, HEIGHT * 0.43, 200, 50, "Maximum Attack", RED, GRAY)
     ];
 
     // ------------------------------
@@ -339,8 +359,8 @@
     // Draw the Payoff Matrix
     // ------------------------------
     function drawPayoffMatrix() {
-      const matrixX = 220;
-      const matrixY = 450;
+      const matrixX = WIDTH * 0.24;
+      const matrixY = HEIGHT * 0.6;
       const rowHeight = 50;
       const colWidth = 220;
 
@@ -468,7 +488,7 @@
       if (state === "roleSelection") {
         ctx.font = FONT;
         ctx.fillStyle = WHITE;
-        ctx.fillText("Choose Your Role", 350, 250);
+        ctx.fillText("Choose Your Role", WIDTH * 0.39, HEIGHT * 0.3);
         cipherButton.draw(ctx);
         trackerButton.draw(ctx);
       }
