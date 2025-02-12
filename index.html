@@ -404,7 +404,7 @@
       // Draw rows for Cipher choices and their payoff details
       const cipherKeys = Object.keys(cipherChoices);
       for (let i = 0; i < cipherKeys.length; i++) {
-        // Move the encryption choice labels further to the left (changed from -210 to -240)
+        // Move the encryption choice labels further to the left
         ctx.fillText(cipherKeys[i], matrixX - 240, matrixY + (i + 1) * rowHeight);
         for (let j = 0; j < trackerKeys.length; j++) {
           const cipherData = cipherChoices[cipherKeys[i]].data;
@@ -428,6 +428,7 @@
     // ------------------------------
     // Typewriter Effect for Game Over Screen
     // ------------------------------
+    // This function appends one character at a time to build the text.
     function typewriterEffect(text, x, y, color, delay, callback) {
       let displayedText = "";
       let i = 0;
@@ -435,7 +436,7 @@
         if (i < text.length) {
           displayedText += text[i];
           i++;
-          drawGameOverScreen(); // redraw updated game-over screen
+          drawGameOverScreen(displayedText, x, y, color);
           setTimeout(type, delay);
         } else {
           completedLines.push(displayedText);
@@ -446,7 +447,8 @@
     }
 
     // Draw the Game Over screen (called repeatedly during the typewriter effect)
-    function drawGameOverScreen() {
+    // The parameter extraLine is passed so that we can display the current text being typed.
+    function drawGameOverScreen(extraLine = "", x = 0, y = 0, color = WHITE) {
       ctx.fillStyle = BLACK;
       ctx.fillRect(0, 0, WIDTH, HEIGHT);
 
@@ -465,8 +467,10 @@
         ctx.fillText(line, WIDTH/2 - 300, yOffset);
         yOffset += 40;
       }
-      // Also display the round summary (if not yet fully typed)
-      ctx.fillText(roundSummary, WIDTH/2 - ctx.measureText(roundSummary).width / 2, yOffset);
+      // Display the line currently being typed (if any)
+      if(extraLine !== "") {
+        ctx.fillText(extraLine, WIDTH/2 - 300, yOffset);
+      }
 
       // Final stats (displayed instantly)
       ctx.fillText(`Cipher Data Sent: ${cipherDataTransferred}/${cipherDataTarget}`, WIDTH/2 - 300, HEIGHT/2 + 80);
@@ -475,12 +479,13 @@
       ctx.fillText(`Tracker Identification Risk: ${trackerIdentificationRisk}/${trackerIdentificationLimit}`, WIDTH/2 - 300, HEIGHT/2 + 170);
     }
 
-    // Start the typewriter effect (chain the round summary and game-over reason lines)
+    // Start the typewriter effect: first type the round summary, then each game-over reason line.
     function showGameOverScreen() {
       completedLines = []; // reset
-      const textX = WIDTH/2 - 300;
-      typewriterEffect(roundSummary, textX, 200, CYBER_BLUE, 50, () => {
-        let yOffset = 250;
+      const textX = WIDTH/2 - 300; // not used inside typewriterEffect now
+      const startY = 200;         // initial y for first line
+      typewriterEffect(roundSummary, textX, startY, CYBER_BLUE, 50, () => {
+        let yOffset = startY + 50; // start below the round summary
         let i = 0;
         function typeNextLine() {
           if (i < gameOverReason.length) {
@@ -545,11 +550,7 @@
         ctx.fillStyle = YELLOW;
         ctx.fillText(`Tracker Identification Risk: ${trackerIdentificationRisk}/${trackerIdentificationLimit}`, 30, 170);
 
-        // Display round summary (centered)
-        ctx.fillStyle = WHITE;
-        const summaryWidth = ctx.measureText(roundSummary).width;
-        ctx.fillText(roundSummary, (WIDTH - summaryWidth) / 2, 200);
-
+        // Display round summary (already being typed via typewriter effect; do not print it again here)
         // Draw decision buttons depending on the player's role
         if (playerRole === "Cipher") {
           cipherButtons.forEach(btn => btn.draw(ctx));
@@ -559,7 +560,8 @@
         }
       }
       else if (state === "gameOverScreen") {
-        drawGameOverScreen();
+        // During game over, the draw is managed by drawGameOverScreen() inside typewriterEffect.
+        // We call drawGameOverScreen() from the typewriterEffect function.
       }
     }
 
