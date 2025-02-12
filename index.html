@@ -129,17 +129,14 @@
       }
       
       draw(ctx) {
-        // Set the font so we can measure the text width
         ctx.font = FONT;
         let textWidth = ctx.measureText(this.text).width;
         const padding = 20; // extra padding on left and right
 
-        // Ensure the button is wide enough to cover the full text + padding
         if (this.width < textWidth + padding) {
           this.width = textWidth + padding;
         }
         
-        // Check if the mouse is over this button
         const isHover = (
           mouseX >= this.x &&
           mouseX <= this.x + this.width &&
@@ -149,7 +146,6 @@
         ctx.fillStyle = isHover ? this.hoverColor : this.color;
         ctx.fillRect(this.x, this.y, this.width, this.height);
         
-        // Draw the text centered in the button
         ctx.fillStyle = WHITE;
         ctx.fillText(
           this.text,
@@ -169,12 +165,10 @@
     // ------------------------------
     // Role Selection Buttons
     // ------------------------------
-    // (Positions may shift as the canvas is now full screen.)
     const cipherButton = new Button(WIDTH * 0.28, HEIGHT * 0.4, 200, 50, "Play as Cipher", CYBER_GREEN, CYBER_BLUE);
     const trackerButton = new Button(WIDTH * 0.55, HEIGHT * 0.4, 200, 50, "Play as Tracker", RED, GRAY);
 
-    // Decision buttons for game rounds
-    // Move decision buttons up by reducing the y-coordinate (from 0.43 to 0.38 of HEIGHT)
+    // Decision buttons for game rounds (moved upward: y-coordinate at 0.38 of HEIGHT)
     const cipherButtons = [
       new Button(WIDTH * 0.06, HEIGHT * 0.38, 200, 50, "Low Encryption", RED, CYBER_BLUE),
       new Button(WIDTH * 0.33, HEIGHT * 0.38, 200, 50, "Medium Encryption", RED, CYBER_BLUE),
@@ -210,11 +204,10 @@
       "",
       "Press any key to begin..."
     ];
-    let crawlYPosition = HEIGHT;  // start off‐screen
+    let crawlYPosition = HEIGHT;
     const crawlSpeed = 2;
     let crawlFinished = false;
 
-    // Allow keypress to skip the text crawl
     document.addEventListener("keydown", (e) => {
       if (state === "textCrawl") {
         crawlFinished = true;
@@ -245,11 +238,9 @@
       else if (state === "gamePlaying") {
         if (!gameOver && !waitingForNextRound) {
           if (playerRole === "Cipher" && cipherChoice === null) {
-            // Check which cipher button was clicked
             for (let i = 0; i < cipherButtons.length; i++) {
               if (cipherButtons[i].isClicked(clickX, clickY)) {
                 cipherChoice = Object.keys(cipherChoices)[i];
-                // AI makes its decision for Tracker
                 trackerChoice = aiTrackerDecision();
                 console.log("[DEBUG] Cipher choice: " + cipherChoice + ", Tracker AI choice: " + trackerChoice);
                 processRound();
@@ -257,7 +248,6 @@
             }
           }
           else if (playerRole === "Tracker") {
-            // For Tracker, have AI choose Cipher if not already chosen
             if (cipherChoice === null) {
               cipherChoice = aiCipherDecision();
               console.log("[DEBUG] AI Cipher choice: " + cipherChoice);
@@ -293,11 +283,8 @@
     // ------------------------------
     function processRound() {
       if (cipherChoice && trackerChoice) {
-        // Update Cipher stats
         cipherDataTransferred += cipherChoices[cipherChoice].data;
         cipherCost += cipherChoices[cipherChoice].cost;
-
-        // Update Tracker stats
         const interceptedData = Math.floor((cipherChoices[cipherChoice].data * trackerChoices[trackerChoice].interception) / 100);
         trackerDataIntercepted += interceptedData;
         trackerIdentificationRisk += trackerChoices[trackerChoice].risk;
@@ -305,12 +292,10 @@
         roundSummary = `Cipher: ${cipherChoice} | Tracker: ${trackerChoice} | Data Sent: ${cipherChoices[cipherChoice].data} | Data Intercepted: ${interceptedData}`;
         waitingForNextRound = true;
 
-        // Delay briefly then increment the round and check for game-over conditions
         setTimeout(() => {
           roundNumber++;
           checkGameOverConditions();
           if (!gameOver) {
-            // Reset for next round
             cipherChoice = null;
             trackerChoice = null;
             waitingForNextRound = false;
@@ -384,27 +369,22 @@
     // Draw the Payoff Matrix
     // ------------------------------
     function drawPayoffMatrix() {
-      // Adjust the matrix's starting position, row height, and column width
       const matrixX = WIDTH * 0.20;
       const matrixY = HEIGHT * 0.55;
-      const rowHeight = 70;  // vertical spacing per row
-      const colWidth = 250;  // horizontal spacing per column
+      const rowHeight = 70;
+      const colWidth = 250;
 
       ctx.font = FONT;
       ctx.fillStyle = WHITE;
-      // Draw header label for the matrix
       ctx.fillText("Cipher / Tracker", matrixX - 140, matrixY - 40);
 
-      // Draw column headers for Tracker choices
       const trackerKeys = Object.keys(trackerChoices);
       for (let j = 0; j < trackerKeys.length; j++) {
         ctx.fillText(trackerKeys[j], matrixX + j * colWidth + 50, matrixY);
       }
 
-      // Draw rows for Cipher choices and their payoff details
       const cipherKeys = Object.keys(cipherChoices);
       for (let i = 0; i < cipherKeys.length; i++) {
-        // Move the encryption choice labels further to the left
         ctx.fillText(cipherKeys[i], matrixX - 240, matrixY + (i + 1) * rowHeight);
         for (let j = 0; j < trackerKeys.length; j++) {
           const cipherData = cipherChoices[cipherKeys[i]].data;
@@ -416,7 +396,6 @@
         }
       }
 
-      // Draw the legend below the matrix
       const legendY = matrixY + (cipherKeys.length + 1) * rowHeight + 10;
       ctx.fillStyle = CYBER_BLUE;
       ctx.fillText("Legend:", matrixX, legendY);
@@ -428,7 +407,7 @@
     // ------------------------------
     // Typewriter Effect for Game Over Screen
     // ------------------------------
-    // This function appends one character at a time to build the text.
+    // Appends one character at a time.
     function typewriterEffect(text, x, y, color, delay, callback) {
       let displayedText = "";
       let i = 0;
@@ -446,20 +425,18 @@
       type();
     }
 
-    // Draw the Game Over screen (called repeatedly during the typewriter effect)
-    // The parameter extraLine is passed so that we can display the current text being typed.
+    // Draw the Game Over screen.
+    // extraLine: the line currently being typed.
     function drawGameOverScreen(extraLine = "", x = 0, y = 0, color = WHITE) {
       ctx.fillStyle = BLACK;
       ctx.fillRect(0, 0, WIDTH, HEIGHT);
 
-      // "GAME OVER" heading
       ctx.font = BIG_FONT;
       ctx.fillStyle = CYBER_BLUE;
       const gameOverText = "GAME OVER";
       const gameOverTextWidth = ctx.measureText(gameOverText).width;
       ctx.fillText(gameOverText, (WIDTH - gameOverTextWidth) / 2, 100);
 
-      // Display completed lines from typewriter effect
       ctx.font = FONT;
       ctx.fillStyle = WHITE;
       let yOffset = 200;
@@ -467,25 +444,23 @@
         ctx.fillText(line, WIDTH/2 - 300, yOffset);
         yOffset += 40;
       }
-      // Display the line currently being typed (if any)
-      if(extraLine !== "") {
+      if (extraLine !== "") {
         ctx.fillText(extraLine, WIDTH/2 - 300, yOffset);
       }
 
-      // Final stats (displayed instantly)
       ctx.fillText(`Cipher Data Sent: ${cipherDataTransferred}/${cipherDataTarget}`, WIDTH/2 - 300, HEIGHT/2 + 80);
       ctx.fillText(`Cipher Cost: ${cipherCost}/${cipherCostLimit}`, WIDTH/2 - 300, HEIGHT/2 + 110);
       ctx.fillText(`Tracker Data Intercepted: ${trackerDataIntercepted}/${trackerInterceptionTarget}`, WIDTH/2 - 300, HEIGHT/2 + 140);
       ctx.fillText(`Tracker Identification Risk: ${trackerIdentificationRisk}/${trackerIdentificationLimit}`, WIDTH/2 - 300, HEIGHT/2 + 170);
     }
 
-    // Start the typewriter effect: first type the round summary, then each game-over reason line.
+    // Begin the typewriter sequence.
     function showGameOverScreen() {
-      completedLines = []; // reset
-      const textX = WIDTH/2 - 300; // not used inside typewriterEffect now
-      const startY = 200;         // initial y for first line
+      completedLines = []; // Reset previous lines.
+      const textX = WIDTH/2 - 300;
+      const startY = 200;
       typewriterEffect(roundSummary, textX, startY, CYBER_BLUE, 50, () => {
-        let yOffset = startY + 50; // start below the round summary
+        let yOffset = startY + 50;
         let i = 0;
         function typeNextLine() {
           if (i < gameOverReason.length) {
@@ -506,7 +481,6 @@
     function update() {
       if (state === "textCrawl") {
         crawlYPosition -= crawlSpeed;
-        // When the last line scrolls off or the user skipped:
         if (crawlYPosition + crawlText.length * 40 < -40 || crawlFinished) {
           state = "gamePlaying";
         }
@@ -514,7 +488,7 @@
     }
 
     function draw() {
-      // Clear the canvas
+      // For non-gameOver states, clear and redraw.
       ctx.fillStyle = BLACK;
       ctx.fillRect(0, 0, WIDTH, HEIGHT);
 
@@ -534,10 +508,7 @@
         }
       }
       else if (state === "gamePlaying") {
-        // Draw the payoff matrix
         drawPayoffMatrix();
-
-        // Display game stats
         ctx.font = FONT;
         ctx.fillStyle = WHITE;
         ctx.fillText(`Round ${roundNumber}/${totalRounds}`, 30, 30);
@@ -549,9 +520,8 @@
         ctx.fillText(`Tracker Data Intercepted: ${trackerDataIntercepted}/${trackerInterceptionTarget}`, 30, 140);
         ctx.fillStyle = YELLOW;
         ctx.fillText(`Tracker Identification Risk: ${trackerIdentificationRisk}/${trackerIdentificationLimit}`, 30, 170);
-
-        // Display round summary (already being typed via typewriter effect; do not print it again here)
-        // Draw decision buttons depending on the player's role
+        
+        // Draw decision buttons.
         if (playerRole === "Cipher") {
           cipherButtons.forEach(btn => btn.draw(ctx));
         }
@@ -559,17 +529,16 @@
           trackerButtons.forEach(btn => btn.draw(ctx));
         }
       }
-      else if (state === "gameOverScreen") {
-        // During game over, the draw is managed by drawGameOverScreen() inside typewriterEffect.
-        // We call drawGameOverScreen() from the typewriterEffect function.
-      }
+      // Note: In "gameOverScreen" state, drawing is managed by the typewriter functions.
     }
 
+    // Modified main loop: once state is "gameOverScreen", stop calling update/draw.
     function mainLoop() {
-      update();
-      draw();
-      // When in gameOverScreen state and the screen hasn't been initialized, trigger the typewriter effect
-      if (state === "gameOverScreen" && !gameOverScreenInitialized) {
+      if (state !== "gameOverScreen") {
+        update();
+        draw();
+      }
+      else if (!gameOverScreenInitialized) {
         showGameOverScreen();
         gameOverScreenInitialized = true;
       }
