@@ -150,17 +150,19 @@
     const trackerButton = new Button(WIDTH * 0.55, HEIGHT * 0.4, 200, 50, "Play as Tracker", RED, GRAY);
 
     // Decision buttons for game rounds
+    // Move decision buttons up by reducing the y-coordinate (from 0.43 to 0.38 of HEIGHT)
     const cipherButtons = [
-      new Button(WIDTH * 0.06, HEIGHT * 0.43, 200, 50, "Low Encryption", RED, CYBER_BLUE),
-      new Button(WIDTH * 0.33, HEIGHT * 0.43, 200, 50, "Medium Encryption", RED, CYBER_BLUE),
-      new Button(WIDTH * 0.60, HEIGHT * 0.43, 200, 50, "High Encryption", RED, CYBER_BLUE)
+      new Button(WIDTH * 0.06, HEIGHT * 0.38, 200, 50, "Low Encryption", RED, CYBER_BLUE),
+      new Button(WIDTH * 0.33, HEIGHT * 0.38, 200, 50, "Medium Encryption", RED, CYBER_BLUE),
+      new Button(WIDTH * 0.60, HEIGHT * 0.38, 200, 50, "High Encryption", RED, CYBER_BLUE)
     ];
 
     const trackerButtons = [
-      new Button(WIDTH * 0.17, HEIGHT * 0.43, 200, 50, "Minimum Attack", RED, GRAY),
-      new Button(WIDTH * 0.41, HEIGHT * 0.43, 200, 50, "Medium Attack", RED, GRAY),
-      new Button(WIDTH * 0.64, HEIGHT * 0.43, 200, 50, "Maximum Attack", RED, GRAY)
+      new Button(WIDTH * 0.17, HEIGHT * 0.38, 200, 50, "Minimum Attack", RED, GRAY),
+      new Button(WIDTH * 0.41, HEIGHT * 0.38, 200, 50, "Medium Attack", RED, GRAY),
+      new Button(WIDTH * 0.64, HEIGHT * 0.38, 200, 50, "Maximum Attack", RED, GRAY)
     ];
+
 
     // ------------------------------
     // Text Crawl Variables & Logic
@@ -360,11 +362,10 @@
     // ------------------------------
     function drawPayoffMatrix() {
       // Adjust the matrix's starting position, row height, and column width
-      // Shift the matrix to the left (matrixX) and upward (matrixY)
-      const matrixX = WIDTH * 0.20;  // shifted left from 0.24 to 0.20
-      const matrixY = HEIGHT * 0.55; // shifted up from 0.6 to 0.55
-      const rowHeight = 70;          // increased vertical space per row
-      const colWidth = 250;          // increased horizontal space per column
+      const matrixX = WIDTH * 0.20;
+      const matrixY = HEIGHT * 0.55;
+      const rowHeight = 70;  // vertical spacing per row
+      const colWidth = 250;  // horizontal spacing per column
 
       ctx.font = FONT;
       ctx.fillStyle = WHITE;
@@ -380,8 +381,8 @@
       // Draw rows for Cipher choices and their payoff details
       const cipherKeys = Object.keys(cipherChoices);
       for (let i = 0; i < cipherKeys.length; i++) {
-        // Move the encryption choice labels further to the left
-        ctx.fillText(cipherKeys[i], matrixX - 210, matrixY + (i + 1) * rowHeight);
+        // Move the encryption choice labels further to the left (changed from -210 to -240)
+        ctx.fillText(cipherKeys[i], matrixX - 240, matrixY + (i + 1) * rowHeight);
         for (let j = 0; j < trackerKeys.length; j++) {
           const cipherData = cipherChoices[cipherKeys[i]].data;
           const cipherCostVal = cipherChoices[cipherKeys[i]].cost;
@@ -400,6 +401,7 @@
       ctx.fillText("D = Data Sent (Cipher), C = Cost (Cipher)", matrixX, legendY + 25);
       ctx.fillText("I = Data Intercepted (Tracker), R = Identification Risk (Tracker)", matrixX, legendY + 50);
     }
+
 
 
 
