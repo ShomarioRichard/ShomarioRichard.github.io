@@ -24,7 +24,7 @@
     // Setup canvas and context
     const canvas = document.getElementById("gameCanvas");
     const ctx = canvas.getContext("2d");
-
+    
     // Dynamically set canvas dimensions to fill the window
     let WIDTH = window.innerWidth;
     let HEIGHT = window.innerHeight;
@@ -55,11 +55,10 @@
     // Global Game States
     // ------------------
     // Possible states: roleSelection, opening, gamePlaying, roundSummary, gameOverScreen
-    let state = "roleSelection";
+    let state = "opening";
 
     // Flags
     let gameOverScreenInitialized = false;
-    let openingTextShown = false;
 
     // Game variables
     let roundNumber = 1;
@@ -196,7 +195,7 @@
     ];
 
     // ------------------------------
-    // Opening Text (Replaces Old Text Crawl)
+    // Opening Text (Typewriter Effect)
     // ------------------------------
     const openingTextLines = [
       "Year 2084: The world is shackled in a grip of data-driven tyranny.",
@@ -211,10 +210,12 @@
       "",
       "Press any key to begin..."
     ];
+    // Instead of processing line-by-line, join the lines with newline characters.
+    const fullOpeningText = openingTextLines.join("\n");
 
     // ------------------------------
     // Generic Typewriter Effect Function
-    // Now accepts a drawing callback.
+    // Accepts a drawing callback.
     // ------------------------------
     function typewriterEffect(text, x, y, color, delay, drawFunc, callback) {
       let displayedText = "";
@@ -226,7 +227,6 @@
           drawFunc(displayedText, x, y, color);
           setTimeout(type, delay);
         } else {
-          completedLines.push(displayedText);
           if (callback) callback();
         }
       }
@@ -234,53 +234,28 @@
     }
 
     // ------------------------------
-    // Drawing functions for Typewriter Effect
+    // Drawing function for the opening text.
+    // It splits the text on newline and draws each line.
     // ------------------------------
-    function drawOpeningTypewriterScreen(extraLine, x, y, color) {
+    function drawOpeningText(displayedText, x, y, color) {
       ctx.fillStyle = BLACK;
       ctx.fillRect(0, 0, WIDTH, HEIGHT);
-      // Draw title for opening
+      
+      // Optional title
       ctx.font = BIG_FONT;
       ctx.fillStyle = CYBER_BLUE;
       const title = "Welcome to the Network";
       const titleWidth = ctx.measureText(title).width;
       ctx.fillText(title, (WIDTH - titleWidth) / 2, 50);
-      // Draw completed lines from opening text
+      
       ctx.font = FONT;
       ctx.fillStyle = WHITE;
-      let yOffset = 100;
-      for (let line of completedLines) {
+      const lines = displayedText.split("\n");
+      let yOffset = y;
+      for (let line of lines) {
         ctx.fillText(line, x, yOffset);
         yOffset += 40;
       }
-      if (extraLine !== "") {
-        ctx.fillText(extraLine, x, yOffset);
-      }
-    }
-
-    function drawGameOverTypewriterScreen(extraLine, x, y, color) {
-      ctx.fillStyle = BLACK;
-      ctx.fillRect(0, 0, WIDTH, HEIGHT);
-      // Draw GAME OVER title
-      ctx.font = BIG_FONT;
-      ctx.fillStyle = CYBER_BLUE;
-      const title = "GAME OVER";
-      const titleWidth = ctx.measureText(title).width;
-      ctx.fillText(title, (WIDTH - titleWidth) / 2, 100);
-      ctx.font = FONT;
-      ctx.fillStyle = WHITE;
-      let yOffset = 200;
-      for (let line of completedLines) {
-        ctx.fillText(line, WIDTH/2 - 300, yOffset);
-        yOffset += 40;
-      }
-      if (extraLine !== "") {
-        ctx.fillText(extraLine, WIDTH/2 - 300, yOffset);
-      }
-      ctx.fillText(`Cipher Data Sent: ${cipherDataTransferred}/${cipherDataTarget}`, WIDTH/2 - 300, HEIGHT/2 + 80);
-      ctx.fillText(`Cipher Cost: ${cipherCost}/${cipherCostLimit}`, WIDTH/2 - 300, HEIGHT/2 + 110);
-      ctx.fillText(`Tracker Data Intercepted: ${trackerDataIntercepted}/${trackerInterceptionTarget}`, WIDTH/2 - 300, HEIGHT/2 + 140);
-      ctx.fillText(`Tracker Identification Risk: ${trackerIdentificationRisk}/${trackerIdentificationLimit}`, WIDTH/2 - 300, HEIGHT/2 + 170);
     }
 
     // ------------------------------
@@ -290,18 +265,10 @@
       completedLines = [];
       const textX = 50;
       const startY = 100;
-      let i = 0;
-      function typeNextLine() {
-        if (i < openingTextLines.length) {
-          typewriterEffect(openingTextLines[i], textX, startY + i * 40, CYBER_BLUE, 50, drawOpeningTypewriterScreen, () => {
-            i++;
-            typeNextLine();
-          });
-        } else {
-          state = "roleSelection";
-        }
-      }
-      typeNextLine();
+      typewriterEffect(fullOpeningText, textX, startY, CYBER_BLUE, 50, drawOpeningText, () => {
+        // Once the opening text finishes, wait for a key press.
+        state = "roleSelection";
+      });
     }
 
     // ------------------------------
@@ -309,7 +276,7 @@
     // ------------------------------
     document.addEventListener("keydown", (e) => {
       if (state === "opening") {
-        // Skip to end of opening text.
+        // If key pressed during opening, skip to role selection.
         state = "roleSelection";
       }
     });
@@ -577,7 +544,6 @@ Totals - Cipher: ${cipherCost} credits, ${cipherDataTransferred} units sent; Tra
       ctx.fillText(`Tracker Identification Risk: ${trackerIdentificationRisk}/${trackerIdentificationLimit}`, WIDTH/2 - 300, HEIGHT/2 + 170);
     }
 
-    // Show Game Over Screen using our typewriter effect
     function showGameOverScreen() {
       completedLines = [];
       const textX = WIDTH/2 - 300;
@@ -602,7 +568,7 @@ Totals - Cipher: ${cipherCost} credits, ${cipherDataTransferred} units sent; Tra
     // Main Update and Draw Functions
     // ------------------------------
     function update() {
-      // No separate update for opening text.
+      // No separate update logic for the opening text.
     }
 
     function draw() {
@@ -617,8 +583,8 @@ Totals - Cipher: ${cipherCost} credits, ${cipherDataTransferred} units sent; Tra
         trackerButton.draw(ctx);
       }
       else if (state === "opening") {
-        // Draw the opening text (typewriter effect already draws via our drawOpeningTypewriterScreen)
-        drawOpeningTypewriterScreen("", 50, 100, CYBER_BLUE);
+        // The typewriter effect handles drawing during opening.
+        drawOpeningText("", 50, 100, CYBER_BLUE);
       }
       else if (state === "gamePlaying") {
         drawPayoffMatrix();
@@ -645,7 +611,7 @@ Totals - Cipher: ${cipherCost} credits, ${cipherDataTransferred} units sent; Tra
         drawRoundSummaryScreen();
       }
       else if (state === "gameOverScreen") {
-        // Game over drawing is handled by the typewriter effect functions.
+        // Game over drawing is handled by typewriter effect functions.
       }
     }
 
