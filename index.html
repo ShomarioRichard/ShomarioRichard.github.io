@@ -243,13 +243,18 @@
       if (extraLine !== "") {
         ctx.fillText(extraLine, x, yOffset);
       }
-      // (The prompt has been removed as requested.)
     }
 
+    // Modified typewriter effect: if state is not "textCrawl", then stop.
     function typewriterEffectForOpening(text, x, y, color, delay, callback) {
       let displayedText = "";
       let i = 0;
       function type() {
+        if (state !== "textCrawl") {
+          // If state has changed, cancel the effect.
+          if (callback) callback();
+          return;
+        }
         if (i < text.length) {
           displayedText += text[i];
           i++;
@@ -275,7 +280,8 @@
           });
         } else {
           openingTextComplete = true;
-          drawOpeningScreen(); // Final redraw without prompt.
+          // Do not auto-advance; wait for a key press.
+          drawOpeningScreen();
         }
       }
       typeLine(0);
@@ -393,7 +399,7 @@ Totals - Cipher: ${cipherCost} credits, ${cipherDataTransferred} units sent; Tra
         roundNumber++;
         checkGameOverConditions();
         if (!gameOver) {
-          state = "roundSummary"; // Show round summary screen.
+          state = "roundSummary";
         }
       }
     }
@@ -557,7 +563,7 @@ Totals - Cipher: ${cipherCost} credits, ${cipherDataTransferred} units sent; Tra
     // Main Update and Draw Functions
     // ------------------------------
     function update() {
-      // Nothing needed here for the opening text; typewriter functions handle that.
+      // Nothing needed for opening text; typewriter functions handle that.
     }
 
     function draw() {
