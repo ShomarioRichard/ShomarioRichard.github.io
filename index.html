@@ -31,7 +31,6 @@
     canvas.width = WIDTH;
     canvas.height = HEIGHT;
 
-    // Update canvas size on window resize
     window.addEventListener("resize", () => {
       WIDTH = window.innerWidth;
       HEIGHT = window.innerHeight;
@@ -39,7 +38,7 @@
       canvas.height = HEIGHT;
     });
 
-    // Colors (using CSS rgb strings)
+    // Colors
     const BLACK      = "rgb(10, 10, 10)";
     const WHITE      = "rgb(255, 255, 255)";
     const CYBER_BLUE = "rgb(50, 130, 255)";
@@ -55,10 +54,10 @@
     // ------------------
     // Global Game States
     // ------------------
-    // State machine: roleSelection, textCrawl, gamePlaying, gameOverScreen
+    // States: roleSelection, textCrawl, gamePlaying, roundSummary, gameOverScreen
     let state = "roleSelection";
 
-    // Flag to trigger the game-over typewriter effect only once
+    // Flag for game-over typewriter effect (unchanged)
     let gameOverScreenInitialized = false;
 
     // Game variables
@@ -66,7 +65,7 @@
     const totalRounds = 5;
     let playerRole = null;
     let aiRole = null;
-    let roundSummary = "";
+    let roundSummary = "";  // Will hold a story-based summary of the round.
     let gameOver = false;
     let waitingForNextRound = false;
 
@@ -95,11 +94,11 @@
       "Maximum Attack": { interception: 80, risk: 5 }
     };
 
-    // Variables to hold the current round’s choices
+    // Current round choices
     let cipherChoice = null;
     let trackerChoice = null;
 
-    // For the typewriter effect on the game‑over screen
+    // For the game over typewriter effect
     let completedLines = [];
     let gameOverReason = [];
 
@@ -131,8 +130,8 @@
       draw(ctx) {
         ctx.font = FONT;
         let textWidth = ctx.measureText(this.text).width;
-        const padding = 20; // extra padding on left and right
-
+        const padding = 20; // extra padding
+        
         if (this.width < textWidth + padding) {
           this.width = textWidth + padding;
         }
@@ -168,7 +167,7 @@
     const cipherButton = new Button(WIDTH * 0.28, HEIGHT * 0.4, 200, 50, "Play as Cipher", CYBER_GREEN, CYBER_BLUE);
     const trackerButton = new Button(WIDTH * 0.55, HEIGHT * 0.4, 200, 50, "Play as Tracker", RED, GRAY);
 
-    // Decision buttons for game rounds (moved upward: y-coordinate at 0.38 of HEIGHT)
+    // Decision buttons for game rounds (y-coordinate at 0.38 of HEIGHT)
     const cipherButtons = [
       new Button(WIDTH * 0.06, HEIGHT * 0.38, 200, 50, "Low Encryption", RED, CYBER_BLUE),
       new Button(WIDTH * 0.33, HEIGHT * 0.38, 200, 50, "Medium Encryption", RED, CYBER_BLUE),
@@ -279,7 +278,7 @@
     }
 
     // ------------------------------
-    // Process a Game Round (No pause between rounds)
+    // Process a Game Round & Show Round Summary Screen
     // ------------------------------
     function processRound() {
       if (cipherChoice && trackerChoice) {
@@ -289,16 +288,21 @@
         trackerDataIntercepted += interceptedData;
         trackerIdentificationRisk += trackerChoices[trackerChoice].risk;
 
-        roundSummary = `Cipher: ${cipherChoice} | Tracker: ${trackerChoice} | Data Sent: ${cipherChoices[cipherChoice].data} | Data Intercepted: ${interceptedData}`;
-        waitingForNextRound = true;
-
-        // Immediately check for game over and update round number
+        // Create a story-based summary of the round:
+        roundSummary = `In this round, Cipher chose "${cipherChoice}" while Tracker countered with "${trackerChoice}". This resulted in ${cipherChoices[cipherChoice].data} data sent and ${interceptedData} data intercepted.`;
         roundNumber++;
+
         checkGameOverConditions();
         if (!gameOver) {
-          cipherChoice = null;
-          trackerChoice = null;
-          waitingForNextRound = false;
+          // Transition to a round summary screen.
+          state = "roundSummary";
+          // After 3 seconds, return to gamePlaying for the next round.
+          setTimeout(() => {
+            state = "gamePlaying";
+            cipherChoice = null;
+            trackerChoice = null;
+            waitingForNextRound = false;
+          }, 3000);
         }
       }
     }
@@ -471,6 +475,26 @@
     }
 
     // ------------------------------
+    // Draw the Round Summary Screen
+    // ------------------------------
+    function drawRoundSummaryScreen() {
+      // Draw a semi-transparent overlay
+      ctx.fillStyle = "rgba(0, 0, 0, 0.8)";
+      ctx.fillRect(0, 0, WIDTH, HEIGHT);
+      
+      ctx.font = BIG_FONT;
+      ctx.fillStyle = CYBER_BLUE;
+      const title = "Round Summary";
+      const titleWidth = ctx.measureText(title).width;
+      ctx.fillText(title, (WIDTH - titleWidth) / 2, HEIGHT * 0.3);
+      
+      ctx.font = FONT;
+      ctx.fillStyle = WHITE;
+      const summaryWidth = ctx.measureText(roundSummary).width;
+      ctx.fillText(roundSummary, (WIDTH - summaryWidth) / 2, HEIGHT * 0.5);
+    }
+
+    // ------------------------------
     // Main Update and Draw Functions
     // ------------------------------
     function update() {
@@ -522,7 +546,11 @@
           trackerButtons.forEach(btn => btn.draw(ctx));
         }
       }
-      // In "gameOverScreen", drawing is managed by the typewriter effect.
+      else if (state === "roundSummary") {
+        // Draw a static round summary screen.
+        drawRoundSummaryScreen();
+      }
+      // In "gameOverScreen", drawing is handled by the typewriter functions.
     }
 
     function mainLoop() {
