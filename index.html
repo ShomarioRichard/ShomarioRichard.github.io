@@ -65,7 +65,7 @@
     const totalRounds = 5;
     let playerRole = null;
     let aiRole = null;
-    let roundSummary = "";  // Story-based summary for the round.
+    let roundSummary = "";  // Dry, mechanical summary for the round.
     let gameOver = false;
     let waitingForNextRound = false;
 
@@ -302,14 +302,21 @@
         trackerDataIntercepted += interceptedData;
         trackerIdentificationRisk += trackerChoices[trackerChoice].risk;
 
-        // Dark, sinister narrative for the round summary:
-        roundSummary = `Round ${roundNumber} plunged deeper into the corporate abyss. Cipher, the ruthless enforcer of the megacorp, activated its "${cipherChoice}" protocol—sacrificing ${cipherChoices[cipherChoice].cost} credits to dispatch ${cipherChoices[cipherChoice].data} encrypted data shards into the digital void. In a counterstrike, Tracker, the renegade hacker of the underbelly, unleashed a "${trackerChoice}" assault, intercepting ${interceptedData} data units and dangerously escalating its risk by ${trackerChoices[trackerChoice].risk} points. The neon-lit corridors of cyberspace tremble under the weight of corporate tyranny as Cipher’s cumulative outlay reaches ${cipherCost} credits with ${cipherDataTransferred} data units sent, while Tracker’s illicit operations have netted ${trackerDataIntercepted} intercepted units and driven its risk level to ${trackerIdentificationRisk}.`;
+        // Dry, mechanical and depressing summary:
+        roundSummary = `Round ${roundNumber} Report:
+Cipher executed "${cipherChoice}" protocol.
+Credits expended: ${cipherChoices[cipherChoice].cost}.
+Data transmitted: ${cipherChoices[cipherChoice].data} units.
+Tracker initiated "${trackerChoice}" countermeasure.
+Data intercepted: ${interceptedData} units.
+Risk increased by: ${trackerChoices[trackerChoice].risk} points.
+Totals - Cipher: ${cipherCost} credits, ${cipherDataTransferred} units sent; Tracker: ${trackerDataIntercepted} units intercepted, risk at ${trackerIdentificationRisk}.`;
         
         roundNumber++;
 
         checkGameOverConditions();
         if (!gameOver) {
-          state = "roundSummary"; // Transition to the round summary screen.
+          state = "roundSummary"; // Transition to round summary screen.
         }
       }
     }
@@ -363,7 +370,7 @@
         gameOverReason = [
           "Neither side emerged victorious in this brutal cyber battle.",
           "The surveillance state grows ever more oppressive.",
-          "Resistance is splintered, fading into the shadows of corporate power."
+          "Resistance fractures and fades into the void."
         ];
         gameOver = true;
         state = "gameOverScreen";
@@ -424,7 +431,7 @@
       const titleWidth = ctx.measureText(title).width;
       ctx.fillText(title, (WIDTH - titleWidth) / 2, HEIGHT * 0.2);
       
-      // Draw the story-based summary (word-wrapped)
+      // Draw the summary text with word wrapping.
       ctx.font = FONT;
       ctx.fillStyle = WHITE;
       const maxTextWidth = WIDTH - 100;
@@ -432,7 +439,7 @@
       let textY = HEIGHT * 0.35;
       wrapText(ctx, roundSummary, 50, textY, maxTextWidth, lineHeight);
       
-      // Draw the prompt at the bottom.
+      // Prompt for the user.
       ctx.font = FONT;
       ctx.fillStyle = YELLOW;
       const prompt = "Press any key to continue your descent...";
@@ -575,7 +582,7 @@
         drawRoundSummaryScreen();
       }
       else if (state === "gameOverScreen") {
-        // Drawing in gameOverScreen is handled by the typewriter effect.
+        // Game over drawing handled by the typewriter effect.
       }
     }
 
