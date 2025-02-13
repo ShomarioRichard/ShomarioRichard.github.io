@@ -65,7 +65,7 @@
     const totalRounds = 5;
     let playerRole = null;
     let aiRole = null;
-    let roundSummary = "";  // Dry, mechanical summary for the round.
+    let roundSummary = "";  // Story-based summary for the round.
     let gameOver = false;
     let waitingForNextRound = false;
 
@@ -302,7 +302,7 @@
         trackerDataIntercepted += interceptedData;
         trackerIdentificationRisk += trackerChoices[trackerChoice].risk;
 
-        // Dry, mechanical and depressing summary:
+        // Dry, mechanical, depressing summary:
         roundSummary = `Round ${roundNumber} Report:
 Cipher executed "${cipherChoice}" protocol.
 Credits expended: ${cipherChoices[cipherChoice].cost}.
@@ -316,7 +316,7 @@ Totals - Cipher: ${cipherCost} credits, ${cipherDataTransferred} units sent; Tra
 
         checkGameOverConditions();
         if (!gameOver) {
-          state = "roundSummary"; // Transition to round summary screen.
+          state = "roundSummary"; // Show round summary screen.
         }
       }
     }
@@ -329,8 +329,8 @@ Totals - Cipher: ${cipherCost} credits, ${cipherDataTransferred} units sent; Tra
         roundSummary = "Cipher Triumphs! The firewall holds.";
         gameOverReason = [
           "Cipher successfully encrypted and transmitted the data.",
-          "The megacorp’s secrets remain sealed within its impenetrable fortress.",
-          "The corporate machine grinds on, indifferent and omnipotent."
+          "The megacorp’s secrets remain locked away in its fortress.",
+          "For now, the machine continues grinding, unquestioned, unchallenged."
         ];
         gameOver = true;
         state = "gameOverScreen";
@@ -338,9 +338,9 @@ Totals - Cipher: ${cipherCost} credits, ${cipherDataTransferred} units sent; Tra
       else if (trackerDataIntercepted >= trackerInterceptionTarget && trackerIdentificationRisk < trackerIdentificationLimit) {
         roundSummary = "Tracker Wins! The truth escapes… for now.";
         gameOverReason = [
-          "Illicit data flows like blood through the underground.",
-          "The public glimpses the dark secrets of corporate tyranny.",
-          "A new era of subversion is born from the ruins."
+          "The intercepted data leaks to the underground network.",
+          "The people glimpse the truth before the megacorp clamps down.",
+          "New encryption protocols go live. The cycle continues."
         ];
         gameOver = true;
         state = "gameOverScreen";
@@ -348,9 +348,11 @@ Totals - Cipher: ${cipherCost} credits, ${cipherDataTransferred} units sent; Tra
       else if (cipherCost > cipherCostLimit) {
         roundSummary = "Game Over! Cipher is financially liquidated.";
         gameOverReason = [
-          "Cipher’s unchecked spending has doomed it to corporate oblivion.",
-          "Efficiency is a luxury the megacorp cannot afford.",
-          "In the end, debts are collected and identities erased."
+          "Cipher’s reckless spending has exceeded budget.",
+          "The megacorp does not tolerate inefficiency.",
+          "Debts are forcibly collected. Identity revoked.",
+          "Assigned a serial number, they serve as a digital slave.",
+          "Their mind, uploaded into a corporate mainframe, encrypts data forever."
         ];
         gameOver = true;
         state = "gameOverScreen";
@@ -358,9 +360,11 @@ Totals - Cipher: ${cipherCost} credits, ${cipherDataTransferred} units sent; Tra
       else if (trackerIdentificationRisk >= trackerIdentificationLimit) {
         roundSummary = "Game Over! Tracker has been terminated.";
         gameOverReason = [
-          "Tracker’s reckless aggression lit the alarm bells of corporate security.",
-          "Synthetic enforcers descended in a torrent of digital violence.",
-          "The dissident’s signal was snuffed out like a dying spark."
+          "Tracker’s aggressive hacking triggered too many security alarms.",
+          "Synthetic enforcers breach their hideout in minutes.",
+          "The last thing they see is a corporate logo on a neural disruptor.",
+          "Their mind is extracted, rewritten, and turned into an AI slave.",
+          "They now hunt the very kind of dissent they once fought for."
         ];
         gameOver = true;
         state = "gameOverScreen";
@@ -368,9 +372,10 @@ Totals - Cipher: ${cipherCost} credits, ${cipherDataTransferred} units sent; Tra
       else if (roundNumber > totalRounds && !gameOver) {
         roundSummary = "Game Over! The war grinds on.";
         gameOverReason = [
-          "Neither side emerged victorious in this brutal cyber battle.",
-          "The surveillance state grows ever more oppressive.",
-          "Resistance fractures and fades into the void."
+          "Neither Cipher nor Tracker achieved their goal in time.",
+          "The megacorp remains unshaken, its surveillance expanding.",
+          "The resistance fractures, splinters, fades into whispers in the dark.",
+          "The war was never meant to be won."
         ];
         gameOver = true;
         state = "gameOverScreen";
@@ -439,7 +444,7 @@ Totals - Cipher: ${cipherCost} credits, ${cipherDataTransferred} units sent; Tra
       let textY = HEIGHT * 0.35;
       wrapText(ctx, roundSummary, 50, textY, maxTextWidth, lineHeight);
       
-      // Prompt for the user.
+      // Draw the prompt at the bottom.
       ctx.font = FONT;
       ctx.fillStyle = YELLOW;
       const prompt = "Press any key to continue your descent...";
@@ -582,7 +587,7 @@ Totals - Cipher: ${cipherCost} credits, ${cipherDataTransferred} units sent; Tra
         drawRoundSummaryScreen();
       }
       else if (state === "gameOverScreen") {
-        // Game over drawing handled by the typewriter effect.
+        // Game over drawing handled by typewriter effect.
       }
     }
 
