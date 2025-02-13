@@ -30,7 +30,6 @@
     let HEIGHT = window.innerHeight;
     canvas.width = WIDTH;
     canvas.height = HEIGHT;
-
     window.addEventListener("resize", () => {
       WIDTH = window.innerWidth;
       HEIGHT = window.innerHeight;
@@ -57,10 +56,8 @@
     // Possible states: roleSelection, textCrawl, gamePlaying, roundSummary, gameOverScreen
     let state = "roleSelection";
 
-    // Flag for game over typewriter effect
+    // Flags
     let gameOverScreenInitialized = false;
-
-    // We'll use this flag to trigger the opening typewriter effect only once.
     let openingTextShown = false;
 
     // Game variables
@@ -68,7 +65,7 @@
     const totalRounds = 5;
     let playerRole = null;
     let aiRole = null;
-    let roundSummary = "";  // Story-based summary for the round.
+    let roundSummary = "";  // Round summary (updated each round)
     let gameOver = false;
     let waitingForNextRound = false;
 
@@ -101,12 +98,12 @@
     let cipherChoice = null;
     let trackerChoice = null;
 
-    // For the game over typewriter effect
+    // For the typewriter effects
     let completedLines = [];
     let gameOverReason = [];
 
     // ------------------
-    // Opening Text Crawl Variables & Logic
+    // Opening Text (to be typed out)
     // ------------------
     const crawlText = [
       "Year 2084: The world is shackled in a grip of data-driven tyranny.",
@@ -151,7 +148,7 @@
       for (let i = 0; i < lines.length; i++) {
         ctx.fillText(lines[i], x, y + i * lineHeight);
       }
-      return lines.length; // returns number of lines used
+      return lines.length;
     }
 
     // ------------------
@@ -222,20 +219,71 @@
     ];
 
     // ------------------------------
-    // Opening Text Crawl: Typewriter Effect Functions
+    // Typewriter Effect Function (Unified)
     // ------------------------------
-    // Draw the opening text screen.
-    function drawOpeningTextScreen(extraLine = "", x = 50, y = 100, color = CYBER_BLUE) {
+    // Now accepts an optional drawing function (drawFunc) for customization.
+    function typewriterEffect(text, x, y, color, delay, callback, drawFunc = drawGameOverScreen) {
+      let displayedText = "";
+      let i = 0;
+      function type() {
+        if (i < text.length) {
+          displayedText += text[i];
+          i++;
+          drawFunc(displayedText, x, y, color);
+          setTimeout(type, delay);
+        } else {
+          completedLines.push(displayedText);
+          if (callback) callback();
+        }
+      }
+      type();
+    }
+
+    // ------------------------------
+    // Draw Function for Game Over Screen (used by typewriterEffect for game over)
+    // ------------------------------
+    function drawGameOverScreen(extraLine = "", x = 0, y = 0, color = WHITE) {
       ctx.fillStyle = BLACK;
       ctx.fillRect(0, 0, WIDTH, HEIGHT);
-      
-      // Optional title for the opening.
+
+      ctx.font = BIG_FONT;
+      ctx.fillStyle = CYBER_BLUE;
+      const gameOverText = "GAME OVER";
+      const gameOverTextWidth = ctx.measureText(gameOverText).width;
+      ctx.fillText(gameOverText, (WIDTH - gameOverTextWidth) / 2, 100);
+
+      ctx.font = FONT;
+      ctx.fillStyle = WHITE;
+      let yOffset = 200;
+      for (let line of completedLines) {
+        ctx.fillText(line, WIDTH/2 - 300, yOffset);
+        yOffset += 40;
+      }
+      if (extraLine !== "") {
+        ctx.fillText(extraLine, WIDTH/2 - 300, yOffset);
+      }
+
+      // Draw stats:
+      ctx.fillText(`Cipher Data Sent: ${cipherDataTransferred}/${cipherDataTarget}`, WIDTH/2 - 300, HEIGHT/2 + 80);
+      ctx.fillText(`Cipher Cost: ${cipherCost}/${cipherCostLimit}`, WIDTH/2 - 300, HEIGHT/2 + 110);
+      ctx.fillText(`Tracker Data Intercepted: ${trackerDataIntercepted}/${trackerInterceptionTarget}`, WIDTH/2 - 300, HEIGHT/2 + 140);
+      ctx.fillText(`Tracker Identification Risk: ${trackerIdentificationRisk}/${trackerIdentificationLimit}`, WIDTH/2 - 300, HEIGHT/2 + 170);
+    }
+
+    // ------------------------------
+    // Draw Function for Opening Text (used by typewriterEffect for the opening narrative)
+    // ------------------------------
+    function drawOpeningTypewriterScreen(extraLine = "", x = 50, y = 100, color = CYBER_BLUE) {
+      ctx.fillStyle = BLACK;
+      ctx.fillRect(0, 0, WIDTH, HEIGHT);
+
+      // Draw an introductory title
       ctx.font = BIG_FONT;
       ctx.fillStyle = CYBER_BLUE;
       const title = "Welcome to the Network";
       const titleWidth = ctx.measureText(title).width;
       ctx.fillText(title, (WIDTH - titleWidth) / 2, 50);
-      
+
       ctx.font = FONT;
       ctx.fillStyle = WHITE;
       let yOffset = 100;
@@ -248,25 +296,9 @@
       }
     }
 
-    // Typewriter effect function for opening text.
-    function typewriterEffectOpening(text, x, y, color, delay, callback) {
-      let displayedText = "";
-      let i = 0;
-      function type() {
-        if (i < text.length) {
-          displayedText += text[i];
-          i++;
-          drawOpeningTextScreen(displayedText, x, y, color);
-          setTimeout(type, delay);
-        } else {
-          completedLines.push(displayedText);
-          if (callback) callback();
-        }
-      }
-      type();
-    }
-
-    // Function to show the opening text crawl via typewriter effect.
+    // ------------------------------
+    // Show Opening Text Using Typewriter Effect
+    // ------------------------------
     function showOpeningTextCrawl() {
       completedLines = [];
       const textX = 50;
@@ -274,21 +306,17 @@
       let i = 0;
       function typeNextLine() {
         if (i < crawlText.length) {
-          typewriterEffectOpening(crawlText[i], textX, startY + i * 40, CYBER_BLUE, 50, () => {
+          typewriterEffect(crawlText[i], textX, startY + i * 40, CYBER_BLUE, 50, () => {
             i++;
             typeNextLine();
-          });
+          }, drawOpeningTypewriterScreen);
         } else {
+          // After finishing all lines, wait for a key press to begin.
           state = "gamePlaying";
         }
       }
       typeNextLine();
     }
-
-    // ------------------------------
-    // Text Crawl: Remove old scrolling logic.
-    // ------------------------------
-    // (No longer used.)
 
     // ------------------------------
     // Mouse Clicks (for Buttons)
@@ -446,45 +474,6 @@ Totals - Cipher: ${cipherCost} credits, ${cipherDataTransferred} units sent; Tra
     }
 
     // ------------------------------
-    // Draw the Payoff Matrix
-    // ------------------------------
-    function drawPayoffMatrix() {
-      const matrixX = WIDTH * 0.20;
-      const matrixY = HEIGHT * 0.55;
-      const rowHeight = 70;
-      const colWidth = 250;
-
-      ctx.font = FONT;
-      ctx.fillStyle = WHITE;
-      ctx.fillText("Cipher / Tracker", matrixX - 140, matrixY - 40);
-
-      const trackerKeys = Object.keys(trackerChoices);
-      for (let j = 0; j < trackerKeys.length; j++) {
-        ctx.fillText(trackerKeys[j], matrixX + j * colWidth + 50, matrixY);
-      }
-
-      const cipherKeys = Object.keys(cipherChoices);
-      for (let i = 0; i < cipherKeys.length; i++) {
-        ctx.fillText(cipherKeys[i], matrixX - 240, matrixY + (i + 1) * rowHeight);
-        for (let j = 0; j < trackerKeys.length; j++) {
-          const cipherData = cipherChoices[cipherKeys[i]].data;
-          const cipherCostVal = cipherChoices[cipherKeys[i]].cost;
-          const trackerInterception = Math.floor((cipherData * trackerChoices[trackerKeys[j]].interception) / 100);
-          const trackerRisk = trackerChoices[trackerKeys[j]].risk;
-          const payoffText = `(${cipherData}D, ${cipherCostVal}C) | (${trackerInterception}I, ${trackerRisk}R)`;
-          ctx.fillText(payoffText, matrixX + j * colWidth + 20, matrixY + (i + 1) * rowHeight);
-        }
-      }
-
-      const legendY = matrixY + (cipherKeys.length + 1) * rowHeight + 10;
-      ctx.fillStyle = CYBER_BLUE;
-      ctx.fillText("Legend:", matrixX, legendY);
-      ctx.fillStyle = WHITE;
-      ctx.fillText("D = Data Sent (Cipher), C = Cost (Cipher)", matrixX, legendY + 25);
-      ctx.fillText("I = Data Intercepted (Tracker), R = Identification Risk (Tracker)", matrixX, legendY + 50);
-    }
-
-    // ------------------------------
     // Draw the Round Summary Screen
     // ------------------------------
     function drawRoundSummaryScreen() {
@@ -525,28 +514,54 @@ Totals - Cipher: ${cipherCost} credits, ${cipherDataTransferred} units sent; Tra
         trackerChoice = null;
         waitingForNextRound = false;
       }
+      // Also, if we're in the opening state (textCrawl) and user presses a key, transition to gamePlaying.
+      if (state === "textCrawl") {
+        state = "gamePlaying";
+      }
     });
 
     // ------------------------------
-    // Typewriter Effect for Game Over Screen (unchanged)
+    // Draw the Payoff Matrix
     // ------------------------------
-    function typewriterEffect(text, x, y, color, delay, callback) {
-      let displayedText = "";
-      let i = 0;
-      function type() {
-        if (i < text.length) {
-          displayedText += text[i];
-          i++;
-          drawGameOverScreen(displayedText, x, y, color);
-          setTimeout(type, delay);
-        } else {
-          completedLines.push(displayedText);
-          if (callback) callback();
+    function drawPayoffMatrix() {
+      const matrixX = WIDTH * 0.20;
+      const matrixY = HEIGHT * 0.55;
+      const rowHeight = 70;
+      const colWidth = 250;
+
+      ctx.font = FONT;
+      ctx.fillStyle = WHITE;
+      ctx.fillText("Cipher / Tracker", matrixX - 140, matrixY - 40);
+
+      const trackerKeys = Object.keys(trackerChoices);
+      for (let j = 0; j < trackerKeys.length; j++) {
+        ctx.fillText(trackerKeys[j], matrixX + j * colWidth + 50, matrixY);
+      }
+
+      const cipherKeys = Object.keys(cipherChoices);
+      for (let i = 0; i < cipherKeys.length; i++) {
+        ctx.fillText(cipherKeys[i], matrixX - 240, matrixY + (i + 1) * rowHeight);
+        for (let j = 0; j < trackerKeys.length; j++) {
+          const cipherData = cipherChoices[cipherKeys[i]].data;
+          const cipherCostVal = cipherChoices[cipherKeys[i]].cost;
+          const trackerInterception = Math.floor((cipherData * trackerChoices[trackerKeys[j]].interception) / 100);
+          const trackerRisk = trackerChoices[trackerKeys[j]].risk;
+          const payoffText = `(${cipherData}D, ${cipherCostVal}C) | (${trackerInterception}I, ${trackerRisk}R)`;
+          ctx.fillText(payoffText, matrixX + j * colWidth + 20, matrixY + (i + 1) * rowHeight);
         }
       }
-      type();
+
+      const legendY = matrixY + (cipherKeys.length + 1) * rowHeight + 10;
+      ctx.fillStyle = CYBER_BLUE;
+      ctx.fillText("Legend:", matrixX, legendY);
+      ctx.fillStyle = WHITE;
+      ctx.fillText("D = Data Sent (Cipher), C = Cost (Cipher)", matrixX, legendY + 25);
+      ctx.fillText("I = Data Intercepted (Tracker), R = Identification Risk (Tracker)", matrixX, legendY + 50);
     }
 
+    // ------------------------------
+    // Draw the Game Over Screen (using typewriter effect)
+    // ------------------------------
     function drawGameOverScreen(extraLine = "", x = 0, y = 0, color = WHITE) {
       ctx.fillStyle = BLACK;
       ctx.fillRect(0, 0, WIDTH, HEIGHT);
@@ -574,31 +589,58 @@ Totals - Cipher: ${cipherCost} credits, ${cipherDataTransferred} units sent; Tra
       ctx.fillText(`Tracker Identification Risk: ${trackerIdentificationRisk}/${trackerIdentificationLimit}`, WIDTH/2 - 300, HEIGHT/2 + 170);
     }
 
-    function showGameOverScreen() {
+    // ------------------------------
+    // Draw the Opening Screen (using typewriter effect)
+    // ------------------------------
+    function drawOpeningTypewriterScreen(extraLine = "", x = 50, y = 100, color = CYBER_BLUE) {
+      ctx.fillStyle = BLACK;
+      ctx.fillRect(0, 0, WIDTH, HEIGHT);
+
+      // Draw an introductory title
+      ctx.font = BIG_FONT;
+      ctx.fillStyle = CYBER_BLUE;
+      const title = "Welcome to the Network";
+      const titleWidth = ctx.measureText(title).width;
+      ctx.fillText(title, (WIDTH - titleWidth) / 2, 50);
+
+      ctx.font = FONT;
+      ctx.fillStyle = WHITE;
+      let yOffset = 100;
+      for (let line of completedLines) {
+        ctx.fillText(line, x, yOffset);
+        yOffset += 40;
+      }
+      if (extraLine !== "") {
+        ctx.fillText(extraLine, x, yOffset);
+      }
+    }
+
+    // ------------------------------
+    // Show Opening Text Using Typewriter Effect
+    // ------------------------------
+    function showOpeningTextCrawl() {
       completedLines = [];
-      const textX = WIDTH/2 - 300;
-      const startY = 200;
-      typewriterEffect(roundSummary, textX, startY, CYBER_BLUE, 50, () => {
-        let yOffset = startY + 50;
-        let i = 0;
-        function typeNextLine() {
-          if (i < gameOverReason.length) {
-            typewriterEffect(gameOverReason[i], textX, yOffset, WHITE, 40, () => {
-              yOffset += 40;
-              i++;
-              typeNextLine();
-            });
-          }
+      const textX = 50;
+      const startY = 100;
+      let i = 0;
+      function typeNextLine() {
+        if (i < crawlText.length) {
+          typewriterEffect(crawlText[i], textX, startY + i * 40, CYBER_BLUE, 50, () => {
+            i++;
+            typeNextLine();
+          }, drawOpeningTypewriterScreen);
+        } else {
+          state = "gamePlaying";
         }
-        typeNextLine();
-      });
+      }
+      typeNextLine();
     }
 
     // ------------------------------
     // Main Update and Draw Functions
     // ------------------------------
     function update() {
-      // No longer using old crawl update logic.
+      // (No scrolling logic needed with the typewriter effect for opening text.)
     }
 
     function draw() {
@@ -614,7 +656,7 @@ Totals - Cipher: ${cipherCost} credits, ${cipherDataTransferred} units sent; Tra
       }
       else if (state === "textCrawl") {
         // Use our opening text typewriter output.
-        drawOpeningTextScreen();
+        drawOpeningTypewriterScreen();
       }
       else if (state === "gamePlaying") {
         drawPayoffMatrix();
@@ -641,7 +683,7 @@ Totals - Cipher: ${cipherCost} credits, ${cipherDataTransferred} units sent; Tra
         drawRoundSummaryScreen();
       }
       else if (state === "gameOverScreen") {
-        // Game over drawing handled by the typewriter effect.
+        // Game over drawing is handled by the typewriter effect functions.
       }
     }
 
@@ -700,6 +742,56 @@ Totals - Cipher: ${cipherCost} credits, ${cipherDataTransferred} units sent; Tra
       ctx.fillStyle = WHITE;
       ctx.fillText("D = Data Sent (Cipher), C = Cost (Cipher)", matrixX, legendY + 25);
       ctx.fillText("I = Data Intercepted (Tracker), R = Identification Risk (Tracker)", matrixX, legendY + 50);
+    }
+
+    // ------------------------------
+    // Draw the Round Summary Screen
+    // ------------------------------
+    function drawRoundSummaryScreen() {
+      ctx.fillStyle = "rgba(0, 0, 0, 0.85)";
+      ctx.fillRect(0, 0, WIDTH, HEIGHT);
+      
+      ctx.font = BIG_FONT;
+      ctx.fillStyle = CYBER_BLUE;
+      const title = "Round Aftermath";
+      const titleWidth = ctx.measureText(title).width;
+      ctx.fillText(title, (WIDTH - titleWidth) / 2, HEIGHT * 0.2);
+      
+      ctx.font = FONT;
+      ctx.fillStyle = WHITE;
+      const maxTextWidth = WIDTH - 100;
+      const lineHeight = 40;
+      let textY = HEIGHT * 0.35;
+      wrapText(ctx, roundSummary, 50, textY, maxTextWidth, lineHeight);
+      
+      ctx.font = FONT;
+      ctx.fillStyle = YELLOW;
+      const prompt = "Press any key to continue your descent...";
+      const promptWidth = ctx.measureText(prompt).width;
+      ctx.fillText(prompt, (WIDTH - promptWidth) / 2, HEIGHT * 0.85);
+    }
+
+    // ------------------------------
+    // Typewriter Effect for Game Over Screen (unchanged)
+    // ------------------------------
+    function showGameOverScreen() {
+      completedLines = [];
+      const textX = WIDTH/2 - 300;
+      const startY = 200;
+      typewriterEffect(roundSummary, textX, startY, CYBER_BLUE, 50, () => {
+        let yOffset = startY + 50;
+        let i = 0;
+        function typeNextLine() {
+          if (i < gameOverReason.length) {
+            typewriterEffect(gameOverReason[i], textX, yOffset, WHITE, 40, () => {
+              yOffset += 40;
+              i++;
+              typeNextLine();
+            });
+          }
+        }
+        typeNextLine();
+      });
     }
   </script>
 </body>
