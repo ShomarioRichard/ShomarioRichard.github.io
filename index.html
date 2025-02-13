@@ -279,7 +279,7 @@
     }
 
     // ------------------------------
-    // Process a Game Round
+    // Process a Game Round (No pause between rounds)
     // ------------------------------
     function processRound() {
       if (cipherChoice && trackerChoice) {
@@ -292,15 +292,14 @@
         roundSummary = `Cipher: ${cipherChoice} | Tracker: ${trackerChoice} | Data Sent: ${cipherChoices[cipherChoice].data} | Data Intercepted: ${interceptedData}`;
         waitingForNextRound = true;
 
-        setTimeout(() => {
-          roundNumber++;
-          checkGameOverConditions();
-          if (!gameOver) {
-            cipherChoice = null;
-            trackerChoice = null;
-            waitingForNextRound = false;
-          }
-        }, 1000);
+        // Immediately check for game over and update round number
+        roundNumber++;
+        checkGameOverConditions();
+        if (!gameOver) {
+          cipherChoice = null;
+          trackerChoice = null;
+          waitingForNextRound = false;
+        }
       }
     }
 
@@ -407,7 +406,6 @@
     // ------------------------------
     // Typewriter Effect for Game Over Screen
     // ------------------------------
-    // Appends one character at a time.
     function typewriterEffect(text, x, y, color, delay, callback) {
       let displayedText = "";
       let i = 0;
@@ -425,8 +423,6 @@
       type();
     }
 
-    // Draw the Game Over screen.
-    // extraLine: the line currently being typed.
     function drawGameOverScreen(extraLine = "", x = 0, y = 0, color = WHITE) {
       ctx.fillStyle = BLACK;
       ctx.fillRect(0, 0, WIDTH, HEIGHT);
@@ -454,9 +450,8 @@
       ctx.fillText(`Tracker Identification Risk: ${trackerIdentificationRisk}/${trackerIdentificationLimit}`, WIDTH/2 - 300, HEIGHT/2 + 170);
     }
 
-    // Begin the typewriter sequence.
     function showGameOverScreen() {
-      completedLines = []; // Reset previous lines.
+      completedLines = [];
       const textX = WIDTH/2 - 300;
       const startY = 200;
       typewriterEffect(roundSummary, textX, startY, CYBER_BLUE, 50, () => {
@@ -488,7 +483,6 @@
     }
 
     function draw() {
-      // For non-gameOver states, clear and redraw.
       ctx.fillStyle = BLACK;
       ctx.fillRect(0, 0, WIDTH, HEIGHT);
 
@@ -521,7 +515,6 @@
         ctx.fillStyle = YELLOW;
         ctx.fillText(`Tracker Identification Risk: ${trackerIdentificationRisk}/${trackerIdentificationLimit}`, 30, 170);
         
-        // Draw decision buttons.
         if (playerRole === "Cipher") {
           cipherButtons.forEach(btn => btn.draw(ctx));
         }
@@ -529,10 +522,9 @@
           trackerButtons.forEach(btn => btn.draw(ctx));
         }
       }
-      // Note: In "gameOverScreen" state, drawing is managed by the typewriter functions.
+      // In "gameOverScreen", drawing is managed by the typewriter effect.
     }
 
-    // Modified main loop: once state is "gameOverScreen", stop calling update/draw.
     function mainLoop() {
       if (state !== "gameOverScreen") {
         update();
