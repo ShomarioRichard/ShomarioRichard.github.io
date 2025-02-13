@@ -106,7 +106,7 @@
     // ------------------
     // Opening Text Variables & Helpers
     // ------------------
-    // The opening text (formerly crawlText) is now shown using a typewriter effect.
+    // The opening text is stored in crawlText.
     const crawlText = [
       "Year 2084: The world is shackled in a grip of data-driven tyranny.",
       "Megacorporations rule without question, their surveillance absolute.",
@@ -127,7 +127,7 @@
       "",
       "Press any key to begin..."
     ];
-    let openingCompletedLines = [];  // Stores already typed lines for the opening text.
+    let openingCompletedLines = [];  // Stores lines already typed for opening text.
 
     // ------------------
     // Utility: Word Wrap Function
@@ -273,7 +273,7 @@
       type();
     }
 
-    // Show the opening text line-by-line.
+    // Show the opening text line-by-line using typewriter effect.
     function showOpeningText() {
       openingCompletedLines = [];
       openingTextComplete = false;
@@ -285,7 +285,7 @@
             typeLine(i + 1);
           });
         } else {
-          // When done, mark the opening text as complete (but do not change state automatically).
+          // When done, mark the opening text as complete.
           openingTextComplete = true;
         }
       }
@@ -297,8 +297,13 @@
     // ------------------------------
     document.addEventListener("keydown", (e) => {
       if (state === "textCrawl") {
-        // Only advance if the opening text is complete.
-        if (openingTextComplete) {
+        // If the opening text is not complete, skip to full text.
+        if (!openingTextComplete) {
+          openingCompletedLines = [...crawlText];
+          openingTextComplete = true;
+          drawOpeningScreen();
+        } else {
+          // If complete, advance to gamePlaying.
           state = "gamePlaying";
         }
       }
@@ -569,7 +574,7 @@ Totals - Cipher: ${cipherCost} credits, ${cipherDataTransferred} units sent; Tra
     // Main Update and Draw Functions
     // ------------------------------
     function update() {
-      // Nothing needed here for the opening text; typewriter functions handle that.
+      // For the opening text, nothing to update (typewriter functions handle it)
     }
 
     function draw() {
@@ -579,12 +584,12 @@ Totals - Cipher: ${cipherCost} credits, ${cipherDataTransferred} units sent; Tra
       if (state === "roleSelection") {
         ctx.font = FONT;
         ctx.fillStyle = WHITE;
-        ctx.fillText("Choose Your Role", WIDTH * 0.45, HEIGHT * 0.3);
+        ctx.fillText("Choose Your Role", WIDTH * 0.39, HEIGHT * 0.3);
         cipherButton.draw(ctx);
         trackerButton.draw(ctx);
       }
       else if (state === "textCrawl") {
-        // Opening text is drawn via the typewriter effect functions.
+        // Opening text is drawn via typewriter effect functions.
       }
       else if (state === "gamePlaying") {
         drawPayoffMatrix();
@@ -611,12 +616,11 @@ Totals - Cipher: ${cipherCost} credits, ${cipherDataTransferred} units sent; Tra
         drawRoundSummaryScreen();
       }
       else if (state === "gameOverScreen") {
-        // Game over drawing handled by the typewriter effect.
+        // Game over drawing is handled by the typewriter effect functions.
       }
     }
 
     function mainLoop() {
-      // For the opening text, do not auto-advance; wait until it's complete and a key is pressed.
       if (state === "textCrawl") {
         if (!openingTextInitialized) {
           showOpeningText();
@@ -646,7 +650,7 @@ Totals - Cipher: ${cipherCost} credits, ${cipherDataTransferred} units sent; Tra
 
       ctx.font = FONT;
       ctx.fillStyle = WHITE;
-      ctx.fillText("Cipher / Tracker", matrixX - 180, matrixY - 80);
+      ctx.fillText("Cipher / Tracker", matrixX - 140, matrixY - 40);
 
       const trackerKeys = Object.keys(trackerChoices);
       for (let j = 0; j < trackerKeys.length; j++) {
