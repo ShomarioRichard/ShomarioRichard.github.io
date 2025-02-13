@@ -579,7 +579,7 @@ Totals - Cipher: ${cipherCost} credits, ${cipherDataTransferred} units sent; Tra
       if (state === "roleSelection") {
         ctx.font = FONT;
         ctx.fillStyle = WHITE;
-        ctx.fillText("Choose Your Role", WIDTH * 0.39, HEIGHT * 0.3);
+        ctx.fillText("Choose Your Role", WIDTH * 0.45, HEIGHT * 0.3);
         cipherButton.draw(ctx);
         trackerButton.draw(ctx);
       }
@@ -646,7 +646,7 @@ Totals - Cipher: ${cipherCost} credits, ${cipherDataTransferred} units sent; Tra
 
       ctx.font = FONT;
       ctx.fillStyle = WHITE;
-      ctx.fillText("Cipher / Tracker", matrixX - 140, matrixY - 40);
+      ctx.fillText("Cipher / Tracker", matrixX - 180, matrixY - 80);
 
       const trackerKeys = Object.keys(trackerChoices);
       for (let j = 0; j < trackerKeys.length; j++) {
