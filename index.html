@@ -98,7 +98,7 @@
     let cipherChoice = null;
     let trackerChoice = null;
 
-    // For game over typewriter effect
+    // For the game over typewriter effect
     let completedLines = [];
     let gameOverReason = [];
 
@@ -124,7 +124,7 @@
       for (let i = 0; i < lines.length; i++) {
         ctx.fillText(lines[i], x, y + i * lineHeight);
       }
-      return lines.length; // return number of lines used
+      return lines.length; // returns number of lines used
     }
 
     // ------------------
@@ -302,13 +302,14 @@
         trackerDataIntercepted += interceptedData;
         trackerIdentificationRisk += trackerChoices[trackerChoice].risk;
 
-        // Create a story-based summary of the round:
-        roundSummary = `In this round, Cipher chose "${cipherChoice}" while Tracker countered with "${trackerChoice}". This resulted in ${cipherChoices[cipherChoice].data} data sent and ${interceptedData} data intercepted.`;
+        // Create a story-based summary that includes all four counters.
+        roundSummary = `Round ${roundNumber} saw a fierce digital clash. Cipher, the corporate enforcer, opted for "${cipherChoice}", transmitting ${cipherChoices[cipherChoice].data} data units at a cost of ${cipherChoices[cipherChoice].cost} resources. In retaliation, Tracker, the rogue hacker, deployed "${trackerChoice}", intercepting ${interceptedData} data units and incurring an identification risk increase of ${trackerChoices[trackerChoice].risk}. Cumulatively, Cipher's operations have cost ${cipherCost} resources with ${cipherDataTransferred} data units sent, while Tracker's efforts have intercepted ${trackerDataIntercepted} data units and raised their risk to ${trackerIdentificationRisk}.`;
+        
         roundNumber++;
 
         checkGameOverConditions();
         if (!gameOver) {
-          state = "roundSummary"; // Show the summary screen
+          state = "roundSummary"; // Show the round summary screen.
         }
       }
     }
@@ -414,6 +415,50 @@
     }
 
     // ------------------------------
+    // Round Summary Screen
+    // ------------------------------
+    function drawRoundSummaryScreen() {
+      // Draw a semi-transparent overlay.
+      ctx.fillStyle = "rgba(0, 0, 0, 0.8)";
+      ctx.fillRect(0, 0, WIDTH, HEIGHT);
+      
+      // Title
+      ctx.font = BIG_FONT;
+      ctx.fillStyle = CYBER_BLUE;
+      const title = "Round Summary";
+      const titleWidth = ctx.measureText(title).width;
+      ctx.fillText(title, (WIDTH - titleWidth) / 2, HEIGHT * 0.2);
+      
+      // Draw the story-based round summary (word-wrapped)
+      ctx.font = FONT;
+      ctx.fillStyle = WHITE;
+      const maxTextWidth = WIDTH - 100;
+      const lineHeight = 40;
+      // Start wrapping text around 40% of the height.
+      let textY = HEIGHT * 0.35;
+      wrapText(ctx, roundSummary, 50, textY, maxTextWidth, lineHeight);
+      
+      // Draw prompt at the bottom.
+      ctx.font = FONT;
+      ctx.fillStyle = YELLOW;
+      const prompt = "Press any key to continue...";
+      const promptWidth = ctx.measureText(prompt).width;
+      ctx.fillText(prompt, (WIDTH - promptWidth) / 2, HEIGHT * 0.85);
+    }
+
+    // ------------------------------
+    // Keydown Handler for Round Summary Screen
+    // ------------------------------
+    document.addEventListener("keydown", (e) => {
+      if (state === "roundSummary") {
+        state = "gamePlaying";
+        cipherChoice = null;
+        trackerChoice = null;
+        waitingForNextRound = false;
+      }
+    });
+
+    // ------------------------------
     // Typewriter Effect for Game Over Screen
     // ------------------------------
     function typewriterEffect(text, x, y, color, delay, callback) {
@@ -460,50 +505,25 @@
       ctx.fillText(`Tracker Identification Risk: ${trackerIdentificationRisk}/${trackerIdentificationLimit}`, WIDTH/2 - 300, HEIGHT/2 + 170);
     }
 
-    // ------------------------------
-    // Draw the Round Summary Screen
-    // ------------------------------
-    function drawRoundSummaryScreen() {
-      // Draw a semi-transparent overlay
-      ctx.fillStyle = "rgba(0, 0, 0, 0.8)";
-      ctx.fillRect(0, 0, WIDTH, HEIGHT);
-      
-      // Title
-      ctx.font = BIG_FONT;
-      ctx.fillStyle = CYBER_BLUE;
-      const title = "Round Summary";
-      const titleWidth = ctx.measureText(title).width;
-      ctx.fillText(title, (WIDTH - titleWidth) / 2, HEIGHT * 0.25);
-      
-      // Draw the round summary text using word-wrap.
-      ctx.font = FONT;
-      ctx.fillStyle = WHITE;
-      const maxTextWidth = WIDTH - 100;
-      const lineHeight = 40;
-      // Center the wrapped text vertically (starting at 40% of the height)
-      let textY = HEIGHT * 0.4;
-      wrapText(ctx, roundSummary, 50, textY, maxTextWidth, lineHeight);
-      
-      // Draw prompt at bottom
-      ctx.font = FONT;
-      ctx.fillStyle = YELLOW;
-      const prompt = "Press any key to continue...";
-      const promptWidth = ctx.measureText(prompt).width;
-      ctx.fillText(prompt, (WIDTH - promptWidth) / 2, HEIGHT * 0.85);
+    function showGameOverScreen() {
+      completedLines = [];
+      const textX = WIDTH/2 - 300;
+      const startY = 200;
+      typewriterEffect(roundSummary, textX, startY, CYBER_BLUE, 50, () => {
+        let yOffset = startY + 50;
+        let i = 0;
+        function typeNextLine() {
+          if (i < gameOverReason.length) {
+            typewriterEffect(gameOverReason[i], textX, yOffset, WHITE, 40, () => {
+              yOffset += 40;
+              i++;
+              typeNextLine();
+            });
+          }
+        }
+        typeNextLine();
+      });
     }
-
-    // ------------------------------
-    // Keydown Handler for Round Summary Screen
-    // ------------------------------
-    document.addEventListener("keydown", (e) => {
-      // If in roundSummary state, then a key press advances to the next round.
-      if (state === "roundSummary") {
-        state = "gamePlaying";
-        cipherChoice = null;
-        trackerChoice = null;
-        waitingForNextRound = false;
-      }
-    });
 
     // ------------------------------
     // Main Update and Draw Functions
@@ -561,7 +581,7 @@
         drawRoundSummaryScreen();
       }
       else if (state === "gameOverScreen") {
-        // Game over drawing is handled by the typewriter effect functions.
+        // Game over drawing handled by typewriter effect.
       }
     }
 
@@ -571,7 +591,6 @@
         draw();
       }
       else if (!gameOverScreenInitialized) {
-        // In game over, start the typewriter effect.
         showGameOverScreen();
         gameOverScreenInitialized = true;
       }
@@ -580,47 +599,7 @@
     mainLoop();
 
     // ------------------------------
-    // Game Over Typewriter Effect Functions (unchanged)
-    // ------------------------------
-    function typewriterEffect(text, x, y, color, delay, callback) {
-      let displayedText = "";
-      let i = 0;
-      function type() {
-        if (i < text.length) {
-          displayedText += text[i];
-          i++;
-          drawGameOverScreen(displayedText, x, y, color);
-          setTimeout(type, delay);
-        } else {
-          completedLines.push(displayedText);
-          if (callback) callback();
-        }
-      }
-      type();
-    }
-
-    function showGameOverScreen() {
-      completedLines = [];
-      const textX = WIDTH/2 - 300;
-      const startY = 200;
-      typewriterEffect(roundSummary, textX, startY, CYBER_BLUE, 50, () => {
-        let yOffset = startY + 50;
-        let i = 0;
-        function typeNextLine() {
-          if (i < gameOverReason.length) {
-            typewriterEffect(gameOverReason[i], textX, yOffset, WHITE, 40, () => {
-              yOffset += 40;
-              i++;
-              typeNextLine();
-            });
-          }
-        }
-        typeNextLine();
-      });
-    }
-
-    // ------------------------------
-    // Draw the Payoff Matrix (unchanged)
+    // Draw the Payoff Matrix
     // ------------------------------
     function drawPayoffMatrix() {
       const matrixX = WIDTH * 0.20;
