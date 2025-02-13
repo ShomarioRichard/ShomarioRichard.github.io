@@ -108,7 +108,7 @@
     // ------------------
     // The opening text (formerly crawlText) is now shown using a typewriter effect.
     const crawlText = [
-      "Year -2084: The world is shackled in a grip of data-driven tyranny.",
+      "Year 2084: The world is shackled in a grip of data-driven tyranny.",
       "Megacorporations rule without question, their surveillance absolute.",
       "Every transaction, whisper, and fleeting thought is recorded,",
       "analyzed, controlled, and weaponized against the powerless.",
@@ -243,13 +243,7 @@
       if (extraLine !== "") {
         ctx.fillText(extraLine, x, yOffset);
       }
-      if (openingTextComplete) {
-        ctx.font = FONT;
-        ctx.fillStyle = YELLOW;
-        const prompt = "Press any key to continue...";
-        const promptWidth = ctx.measureText(prompt).width;
-        ctx.fillText(prompt, (WIDTH - promptWidth) / 2, HEIGHT * 0.85);
-      }
+      // (The prompt has been removed as requested.)
     }
 
     function typewriterEffectForOpening(text, x, y, color, delay, callback) {
@@ -281,7 +275,7 @@
           });
         } else {
           openingTextComplete = true;
-          drawOpeningScreen(); // Ensure prompt is shown.
+          drawOpeningScreen(); // Final redraw without prompt.
         }
       }
       typeLine(0);
@@ -563,7 +557,7 @@ Totals - Cipher: ${cipherCost} credits, ${cipherDataTransferred} units sent; Tra
     // Main Update and Draw Functions
     // ------------------------------
     function update() {
-      // Nothing needed for opening text; typewriter functions handle that.
+      // Nothing needed here for the opening text; typewriter functions handle that.
     }
 
     function draw() {
