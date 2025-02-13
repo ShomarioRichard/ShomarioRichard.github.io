@@ -53,7 +53,7 @@
     // ------------------
     // Global Game States
     // ------------------
-    // Possible states: roleSelection, textCrawl, gamePlaying, roundSummary, gameOverScreen
+    // States: roleSelection, textCrawl, gamePlaying, roundSummary, gameOverScreen
     let state = "roleSelection";
 
     // Flags for typewriter effects
@@ -127,7 +127,7 @@
       "",
       "Press any key to begin..."
     ];
-    let openingCompletedLines = [];  // Stores already typed lines for opening text.
+    let openingCompletedLines = [];  // Stores already typed lines for the opening text.
 
     // ------------------
     // Utility: Word Wrap Function
@@ -242,10 +242,10 @@
         ctx.fillText(line, x, yOffset);
         yOffset += 40;
       }
-      if(extraLine !== ""){
+      if (extraLine !== "") {
         ctx.fillText(extraLine, x, yOffset);
       }
-      // If the entire opening text has been typed, draw a prompt.
+      // Only when the full opening text is complete, display a prompt.
       if (openingTextComplete) {
         ctx.font = FONT;
         ctx.fillStyle = YELLOW;
@@ -273,7 +273,7 @@
       type();
     }
 
-    // Show the opening text line-by-line using typewriter effect.
+    // Show the opening text line-by-line.
     function showOpeningText() {
       openingCompletedLines = [];
       openingTextComplete = false;
@@ -285,8 +285,7 @@
             typeLine(i + 1);
           });
         } else {
-          // When done, do not immediately transition;
-          // instead, mark the opening as complete so that a prompt is shown.
+          // When done, mark the opening text as complete (but do not change state automatically).
           openingTextComplete = true;
         }
       }
@@ -294,21 +293,15 @@
     }
 
     // ------------------------------
-    // Keydown Handler for Opening Text
+    // Keydown Handler for Opening & Round Summary
     // ------------------------------
     document.addEventListener("keydown", (e) => {
       if (state === "textCrawl") {
-        // If the opening text is complete, then any key advances to gameplay.
+        // Only advance if the opening text is complete.
         if (openingTextComplete) {
           state = "gamePlaying";
-        } else {
-          // Otherwise, force the opening text to complete immediately.
-          openingCompletedLines = [...crawlText];
-          openingTextComplete = true;
-          drawOpeningScreen();
         }
       }
-      // Also handle round summary key presses.
       else if (state === "roundSummary") {
         state = "gamePlaying";
         cipherChoice = null;
@@ -506,29 +499,6 @@ Totals - Cipher: ${cipherCost} credits, ${cipherDataTransferred} units sent; Tra
     }
 
     // ------------------------------
-    // Keydown Handler for Opening & Round Summary
-    // ------------------------------
-    document.addEventListener("keydown", (e) => {
-      if (state === "textCrawl") {
-        // If opening text is complete, advance to gamePlaying.
-        if (openingTextComplete) {
-          state = "gamePlaying";
-        } else {
-          // Otherwise, force the opening text to complete immediately.
-          openingCompletedLines = [...crawlText];
-          openingTextComplete = true;
-          drawOpeningScreen();
-        }
-      }
-      else if (state === "roundSummary") {
-        state = "gamePlaying";
-        cipherChoice = null;
-        trackerChoice = null;
-        waitingForNextRound = false;
-      }
-    });
-
-    // ------------------------------
     // Typewriter Effect for Game Over Screen
     // ------------------------------
     function typewriterEffect(text, x, y, color, delay, callback) {
@@ -599,7 +569,7 @@ Totals - Cipher: ${cipherCost} credits, ${cipherDataTransferred} units sent; Tra
     // Main Update and Draw Functions
     // ------------------------------
     function update() {
-      // Nothing to update in opening text; typewriter functions handle that.
+      // Nothing needed here for the opening text; typewriter functions handle that.
     }
 
     function draw() {
@@ -614,7 +584,7 @@ Totals - Cipher: ${cipherCost} credits, ${cipherDataTransferred} units sent; Tra
         trackerButton.draw(ctx);
       }
       else if (state === "textCrawl") {
-        // Opening text is drawn via typewriter effect functions.
+        // Opening text is drawn via the typewriter effect functions.
       }
       else if (state === "gamePlaying") {
         drawPayoffMatrix();
@@ -641,13 +611,13 @@ Totals - Cipher: ${cipherCost} credits, ${cipherDataTransferred} units sent; Tra
         drawRoundSummaryScreen();
       }
       else if (state === "gameOverScreen") {
-        // Game over drawing is handled by the typewriter effect.
+        // Game over drawing handled by the typewriter effect.
       }
     }
 
     function mainLoop() {
+      // For the opening text, do not auto-advance; wait until it's complete and a key is pressed.
       if (state === "textCrawl") {
-        // Initialize opening text once.
         if (!openingTextInitialized) {
           showOpeningText();
           openingTextInitialized = true;
