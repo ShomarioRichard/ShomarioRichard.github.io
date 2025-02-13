@@ -54,10 +54,10 @@
     // ------------------
     // Global Game States
     // ------------------
-    // Possible states: roleSelection, opening, gamePlaying, roundSummary, gameOverScreen
-    let state = "opening";
+    // Possible states: roleSelection, textCrawl, gamePlaying, roundSummary, gameOverScreen
+    let state = "roleSelection";
 
-    // Flags
+    // Flag for game over typewriter effect
     let gameOverScreenInitialized = false;
 
     // Game variables
@@ -98,7 +98,7 @@
     let cipherChoice = null;
     let trackerChoice = null;
 
-    // For typewriter effect (used for both opening and game over)
+    // For the game over typewriter effect
     let completedLines = [];
     let gameOverReason = [];
 
@@ -195,89 +195,35 @@
     ];
 
     // ------------------------------
-    // Opening Text (Typewriter Effect)
+    // Text Crawl Variables & Logic
     // ------------------------------
-    const openingTextLines = [
+    const crawlText = [
       "Year 2084: The world is shackled in a grip of data-driven tyranny.",
       "Megacorporations rule without question, their surveillance absolute.",
-      "Every transaction, every whispered thought is logged, analyzed, and weaponized.",
+      "Every transaction, whisper, and fleeting thought is recorded,",
+      "analyzed, controlled, and weaponized against the powerless.",
       "",
-      "Cipher: A corporate enforcer, executing orders without remorse.",
-      "Tracker: A rogue hacker, peeling back the veil of corporate lies.",
+      "Cipher: A corporate enforcer, bound by contract and control.",
+      "Encrypt. Conceal. Execute. The system rewards loyalty and obedience.",
       "",
-      "In this network of neon shadows, there is no escape.",
-      "Welcome to the system.",
+      "Tracker: A rogue hacker, fighting to expose the truth.",
+      "Intercept. Extract. Eradicate. The walls of secrecy must collapse.",
+      "",
+      "The war is fought in shadows—a battle of whispers and firewalls.",
+      "Every move carries risk. Every transmission could be the last.",
+      "The megacorp is watching. The noose tightens with each cycle.",
+      "",
+      "There is no escape. There is only the game.",
       "",
       "Press any key to begin..."
     ];
-    // Instead of processing line-by-line, join the lines with newline characters.
-    const fullOpeningText = openingTextLines.join("\n");
+    let crawlYPosition = HEIGHT;
+    const crawlSpeed = 2;
+    let crawlFinished = false;
 
-    // ------------------------------
-    // Generic Typewriter Effect Function
-    // Accepts a drawing callback.
-    // ------------------------------
-    function typewriterEffect(text, x, y, color, delay, drawFunc, callback) {
-      let displayedText = "";
-      let i = 0;
-      function type() {
-        if (i < text.length) {
-          displayedText += text[i];
-          i++;
-          drawFunc(displayedText, x, y, color);
-          setTimeout(type, delay);
-        } else {
-          if (callback) callback();
-        }
-      }
-      type();
-    }
-
-    // ------------------------------
-    // Drawing function for the opening text.
-    // It splits the text on newline and draws each line.
-    // ------------------------------
-    function drawOpeningText(displayedText, x, y, color) {
-      ctx.fillStyle = BLACK;
-      ctx.fillRect(0, 0, WIDTH, HEIGHT);
-      
-      // Optional title
-      ctx.font = BIG_FONT;
-      ctx.fillStyle = CYBER_BLUE;
-      const title = "Welcome to the Network";
-      const titleWidth = ctx.measureText(title).width;
-      ctx.fillText(title, (WIDTH - titleWidth) / 2, 50);
-      
-      ctx.font = FONT;
-      ctx.fillStyle = WHITE;
-      const lines = displayedText.split("\n");
-      let yOffset = y;
-      for (let line of lines) {
-        ctx.fillText(line, x, yOffset);
-        yOffset += 40;
-      }
-    }
-
-    // ------------------------------
-    // Show Opening Text via Typewriter Effect
-    // ------------------------------
-    function showOpeningText() {
-      completedLines = [];
-      const textX = 50;
-      const startY = 100;
-      typewriterEffect(fullOpeningText, textX, startY, CYBER_BLUE, 50, drawOpeningText, () => {
-        // Once the opening text finishes, wait for a key press.
-        state = "roleSelection";
-      });
-    }
-
-    // ------------------------------
-    // Keydown Handler for Opening Text
-    // ------------------------------
     document.addEventListener("keydown", (e) => {
-      if (state === "opening") {
-        // If key pressed during opening, skip to role selection.
-        state = "roleSelection";
+      if (state === "textCrawl") {
+        crawlFinished = true;
       }
     });
 
@@ -293,12 +239,12 @@
         if (cipherButton.isClicked(clickX, clickY)) {
           playerRole = "Cipher";
           aiRole = "Tracker";
-          state = "gamePlaying";
+          state = "textCrawl";
           console.log("[DEBUG] Player selected Cipher");
         } else if (trackerButton.isClicked(clickX, clickY)) {
           playerRole = "Tracker";
           aiRole = "Cipher";
-          state = "gamePlaying";
+          state = "textCrawl";
           console.log("[DEBUG] Player selected Tracker");
         }
       }
@@ -367,6 +313,7 @@ Risk increased by: ${trackerChoices[trackerChoice].risk} points.
 Totals - Cipher: ${cipherCost} credits, ${cipherDataTransferred} units sent; Tracker: ${trackerDataIntercepted} units intercepted, risk at ${trackerIdentificationRisk}.`;
         
         roundNumber++;
+
         checkGameOverConditions();
         if (!gameOver) {
           state = "roundSummary"; // Show round summary screen.
@@ -518,16 +465,35 @@ Totals - Cipher: ${cipherCost} credits, ${cipherDataTransferred} units sent; Tra
     });
 
     // ------------------------------
-    // Draw Game Over Screen (via Typewriter Effect)
+    // Typewriter Effect for Game Over Screen
     // ------------------------------
-    function drawGameOverTypewriterScreen(extraLine, x, y, color) {
+    function typewriterEffect(text, x, y, color, delay, callback) {
+      let displayedText = "";
+      let i = 0;
+      function type() {
+        if (i < text.length) {
+          displayedText += text[i];
+          i++;
+          drawGameOverScreen(displayedText, x, y, color);
+          setTimeout(type, delay);
+        } else {
+          completedLines.push(displayedText);
+          if (callback) callback();
+        }
+      }
+      type();
+    }
+
+    function drawGameOverScreen(extraLine = "", x = 0, y = 0, color = WHITE) {
       ctx.fillStyle = BLACK;
       ctx.fillRect(0, 0, WIDTH, HEIGHT);
+
       ctx.font = BIG_FONT;
       ctx.fillStyle = CYBER_BLUE;
-      const title = "GAME OVER";
-      const titleWidth = ctx.measureText(title).width;
-      ctx.fillText(title, (WIDTH - titleWidth) / 2, 100);
+      const gameOverText = "GAME OVER";
+      const gameOverTextWidth = ctx.measureText(gameOverText).width;
+      ctx.fillText(gameOverText, (WIDTH - gameOverTextWidth) / 2, 100);
+
       ctx.font = FONT;
       ctx.fillStyle = WHITE;
       let yOffset = 200;
@@ -538,6 +504,7 @@ Totals - Cipher: ${cipherCost} credits, ${cipherDataTransferred} units sent; Tra
       if (extraLine !== "") {
         ctx.fillText(extraLine, WIDTH/2 - 300, yOffset);
       }
+
       ctx.fillText(`Cipher Data Sent: ${cipherDataTransferred}/${cipherDataTarget}`, WIDTH/2 - 300, HEIGHT/2 + 80);
       ctx.fillText(`Cipher Cost: ${cipherCost}/${cipherCostLimit}`, WIDTH/2 - 300, HEIGHT/2 + 110);
       ctx.fillText(`Tracker Data Intercepted: ${trackerDataIntercepted}/${trackerInterceptionTarget}`, WIDTH/2 - 300, HEIGHT/2 + 140);
@@ -548,12 +515,12 @@ Totals - Cipher: ${cipherCost} credits, ${cipherDataTransferred} units sent; Tra
       completedLines = [];
       const textX = WIDTH/2 - 300;
       const startY = 200;
-      typewriterEffect(roundSummary, textX, startY, CYBER_BLUE, 50, drawGameOverTypewriterScreen, () => {
+      typewriterEffect(roundSummary, textX, startY, CYBER_BLUE, 50, () => {
         let yOffset = startY + 50;
         let i = 0;
         function typeNextLine() {
           if (i < gameOverReason.length) {
-            typewriterEffect(gameOverReason[i], textX, yOffset, WHITE, 40, drawGameOverTypewriterScreen, () => {
+            typewriterEffect(gameOverReason[i], textX, yOffset, WHITE, 40, () => {
               yOffset += 40;
               i++;
               typeNextLine();
@@ -568,7 +535,12 @@ Totals - Cipher: ${cipherCost} credits, ${cipherDataTransferred} units sent; Tra
     // Main Update and Draw Functions
     // ------------------------------
     function update() {
-      // No separate update logic for the opening text.
+      if (state === "textCrawl") {
+        crawlYPosition -= crawlSpeed;
+        if (crawlYPosition + crawlText.length * 40 < -40 || crawlFinished) {
+          state = "gamePlaying";
+        }
+      }
     }
 
     function draw() {
@@ -582,9 +554,13 @@ Totals - Cipher: ${cipherCost} credits, ${cipherDataTransferred} units sent; Tra
         cipherButton.draw(ctx);
         trackerButton.draw(ctx);
       }
-      else if (state === "opening") {
-        // The typewriter effect handles drawing during opening.
-        drawOpeningText("", 50, 100, CYBER_BLUE);
+      else if (state === "textCrawl") {
+        ctx.font = BIG_FONT;
+        ctx.fillStyle = CYBER_BLUE;
+        for (let i = 0; i < crawlText.length; i++) {
+          const textWidth = ctx.measureText(crawlText[i]).width;
+          ctx.fillText(crawlText[i], WIDTH/2 - textWidth/2, crawlYPosition + i * 40);
+        }
       }
       else if (state === "gamePlaying") {
         drawPayoffMatrix();
@@ -611,16 +587,11 @@ Totals - Cipher: ${cipherCost} credits, ${cipherDataTransferred} units sent; Tra
         drawRoundSummaryScreen();
       }
       else if (state === "gameOverScreen") {
-        // Game over drawing is handled by typewriter effect functions.
+        // Game over drawing handled by typewriter effect.
       }
     }
 
     function mainLoop() {
-      if (state === "opening" && !openingTextShown) {
-        showOpeningText();
-        openingTextShown = true;
-      }
-      
       if (state !== "gameOverScreen") {
         update();
         draw();
