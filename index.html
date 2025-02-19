@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Freehand Draw and Ear Clipping Visualization</title>
+  <title>Freehand Draw with Snapping & Step-by-Step Ear Clipping</title>
   <style>
     canvas {
       border: 1px solid #ccc;
@@ -26,12 +26,15 @@
     const canvas = document.getElementById("canvas");
     const ctx = canvas.getContext("2d");
 
+    // Global state variables.
     let drawing = false;
-    let originalPoints = []; // All freehand-drawn points
-    let polygon = [];        // The current polygon (will be closed)
-    let triangles = [];      // Completed triangles from ear clipping
+    let originalPoints = []; // All freehand-drawn points.
+    let polygon = [];        // The working polygon (closed when finished).
+    let triangles = [];      // Completed triangles from ear clipping.
+    let isSnapped = false;   // True if the mouse is within snapping distance.
+    const snapThreshold = 10; // Distance (in pixels) to trigger snapping.
 
-    // Start freehand drawing on mousedown.
+    // Start drawing on mousedown.
     canvas.addEventListener("mousedown", (e) => {
       drawing = true;
       const rect = canvas.getBoundingClientRect();
@@ -39,41 +42,70 @@
       const y = e.clientY - rect.top;
       originalPoints = [{ x, y }];
       polygon = [{ x, y }];
+      isSnapped = false;
       draw();
     });
 
-    // Capture mouse movements while drawing.
+    // Record freehand points on mousemove.
     canvas.addEventListener("mousemove", (e) => {
       if (!drawing) return;
       const rect = canvas.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
+      let x = e.clientX - rect.left;
+      let y = e.clientY - rect.top;
+      // Check distance from the first point.
+      const start = originalPoints[0];
+      const dx = x - start.x;
+      const dy = y - start.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < snapThreshold) {
+        // Snap current point to the starting point.
+        x = start.x;
+        y = start.y;
+        isSnapped = true;
+      } else {
+        isSnapped = false;
+      }
+      // Push the new point.
       originalPoints.push({ x, y });
       polygon.push({ x, y });
       draw();
     });
 
-    // End freehand drawing on mouseup.
+    // On mouseup, finish the drawing—snapping if appropriate.
     canvas.addEventListener("mouseup", () => {
       drawing = false;
-      // Automatically close the polygon.
       if (polygon.length > 2) {
-        polygon.push(polygon[0]);
+        if (isSnapped) {
+          // Replace the last point with the first point.
+          polygon[polygon.length - 1] = polygon[0];
+        } else {
+          // Otherwise, explicitly close the polygon.
+          polygon.push(polygon[0]);
+        }
       }
       draw();
     });
 
-    // Option to explicitly finish drawing.
+    // "Finish Drawing" button forces closing the polygon.
     document.getElementById("finishDrawing").addEventListener("click", () => {
-      if (polygon.length > 2 &&
-         (polygon[0].x !== polygon[polygon.length - 1].x ||
-          polygon[0].y !== polygon[polygon.length - 1].y)) {
-        polygon.push(polygon[0]);
+      if (polygon.length > 2) {
+        // If the current endpoint is near the start, snap it.
+        const start = polygon[0];
+        const last = polygon[polygon.length - 1];
+        const dx = last.x - start.x;
+        const dy = last.y - start.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < snapThreshold) {
+          polygon[polygon.length - 1] = start;
+        } else {
+          polygon.push(start);
+        }
       }
+      drawing = false;
       draw();
     });
 
-    // Geometry helper: Compute signed area of triangle (p, q, r)
+    // Geometry helper: Compute the signed area of triangle (p, q, r).
     function area(p, q, r) {
       return (q.x - p.x) * (r.y - p.y) - (r.x - p.x) * (q.y - p.y);
     }
@@ -83,7 +115,7 @@
       return area(prev, curr, next) < 0;
     }
 
-    // Check if point pt is inside triangle (v1, v2, v3)
+    // Check if point pt is inside triangle (v1, v2, v3).
     function isPointInTriangle(pt, v1, v2, v3) {
       const d1 = area(pt, v1, v2);
       const d2 = area(pt, v2, v3);
@@ -93,11 +125,10 @@
       return !(hasNeg && hasPos);
     }
 
-    // Determine if vertex at index i is an ear in the polygon.
-    // Note: The polygon is expected to be closed (first point repeated at the end).
+    // Determine if vertex at index i is an ear.
+    // The polygon is expected to be closed (first point repeated at the end).
     function isEar(i, poly) {
-      // Work with unique vertices (exclude duplicate last point).
-      if (poly.length < 4) return false;
+      if (poly.length < 4) return false; // Need at least 3 unique vertices.
       const uniquePoly = poly.slice(0, poly.length - 1);
       const len = uniquePoly.length;
       const idx = i;
@@ -107,9 +138,11 @@
 
       if (!isConvex(prev, curr, next)) return false;
 
-      // Ensure no other point is inside the candidate ear triangle.
+      // Ensure no other vertex lies inside the candidate ear.
       for (let j = 0; j < len; j++) {
-        if (j === ((idx - 1 + len) % len) || j === idx || j === ((idx + 1) % len)) continue;
+        if (j === ((idx - 1 + len) % len) || j === idx || j === ((idx + 1) % len)) {
+          continue;
+        }
         if (isPointInTriangle(uniquePoly[j], prev, curr, next)) {
           return false;
         }
@@ -117,9 +150,9 @@
       return true;
     }
 
-    // Execute one ear clipping step.
+    // Perform one ear clipping step.
     function stepEarClipping() {
-      // Make sure we have a closed polygon.
+      // Ensure we have a closed polygon.
       if (polygon.length < 4) {
         alert("Not enough points to triangulate.");
         return;
@@ -160,7 +193,8 @@
       draw({ prev, curr, next });
     }
 
-    // Draw the current state: completed triangles, polygon outline, and optionally a highlighted ear.
+    // Draw the current state.
+    // If earTriangle is provided, highlight it with a red outline.
     function draw(earTriangle) {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -188,13 +222,23 @@
         ctx.stroke();
       }
 
-      // Draw vertices.
+      // Draw the vertices as small black circles.
       polygon.forEach(p => {
         ctx.beginPath();
         ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
         ctx.fillStyle = "black";
         ctx.fill();
       });
+
+      // Draw the snap zone indicator around the first point.
+      if (originalPoints.length > 0) {
+        ctx.beginPath();
+        ctx.arc(originalPoints[0].x, originalPoints[0].y, snapThreshold, 0, Math.PI * 2);
+        ctx.strokeStyle = "orange";
+        ctx.setLineDash([5, 5]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
 
       // If an ear triangle is provided, highlight it in red.
       if (earTriangle) {
@@ -215,6 +259,8 @@
       originalPoints = [];
       polygon = [];
       triangles = [];
+      drawing = false;
+      isSnapped = false;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
     });
   </script>
