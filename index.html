@@ -80,7 +80,7 @@
       // Redraw the polygon before overlaying triangles.
       draw();
 
-      // Draw each triangle.
+      // Draw and fill each triangle.
       for (let i = 0; i < triangles.length; i += 3) {
         // Compute the vertex positions for each triangle.
         const idx0 = triangles[i] * 2;
@@ -96,6 +96,12 @@
         ctx.lineTo(p1[0], p1[1]);
         ctx.lineTo(p2[0], p2[1]);
         ctx.closePath();
+
+        // Set the fill style to an opaque red (adjust as desired).
+        ctx.fillStyle = "red";
+        ctx.fill();
+
+        // Optionally, you can still draw the red outline.
         ctx.strokeStyle = "red";
         ctx.stroke();
       }
