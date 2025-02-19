@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Freehand Draw with Snapping & Step-by-Step Ear Clipping</title>
+  <title>Freehand Draw with Snapping, Validation & Step-by-Step Ear Clipping</title>
   <style>
     canvas {
       border: 1px solid #ccc;
@@ -65,7 +65,7 @@
       } else {
         isSnapped = false;
       }
-      // Push the new point.
+      // Add the new point.
       originalPoints.push({ x, y });
       polygon.push({ x, y });
       draw();
@@ -76,7 +76,7 @@
       drawing = false;
       if (polygon.length > 2) {
         if (isSnapped) {
-          // Replace the last point with the first point.
+          // Replace the last point with the starting point.
           polygon[polygon.length - 1] = polygon[0];
         } else {
           // Otherwise, explicitly close the polygon.
@@ -88,24 +88,18 @@
 
     // "Finish Drawing" button forces closing the polygon.
     document.getElementById("finishDrawing").addEventListener("click", () => {
-      if (polygon.length > 2) {
-        // If the current endpoint is near the start, snap it.
-        const start = polygon[0];
-        const last = polygon[polygon.length - 1];
-        const dx = last.x - start.x;
-        const dy = last.y - start.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < snapThreshold) {
-          polygon[polygon.length - 1] = start;
-        } else {
-          polygon.push(start);
-        }
+      if (polygon.length > 2 &&
+         (polygon[0].x !== polygon[polygon.length - 1].x ||
+          polygon[0].y !== polygon[polygon.length - 1].y)) {
+        polygon.push(polygon[0]);
       }
       drawing = false;
       draw();
     });
 
-    // Geometry helper: Compute the signed area of triangle (p, q, r).
+    // --- Geometry Helpers for Ear Clipping and Validity Checks ---
+
+    // Compute the signed area of triangle (p, q, r)
     function area(p, q, r) {
       return (q.x - p.x) * (r.y - p.y) - (r.x - p.x) * (q.y - p.y);
     }
@@ -150,6 +144,62 @@
       return true;
     }
 
+    // --- Self-Intersection Check Helpers ---
+
+    // Check if point q lies on segment pr.
+    function onSegment(p, q, r) {
+      return q.x <= Math.max(p.x, r.x) &&
+             q.x >= Math.min(p.x, r.x) &&
+             q.y <= Math.max(p.y, r.y) &&
+             q.y >= Math.min(p.y, r.y);
+    }
+
+    // Find orientation of ordered triplet (p, q, r).
+    // Returns 0 if collinear, 1 if clockwise, 2 if counterclockwise.
+    function orientation(p, q, r) {
+      const val = (q.y - p.y) * (r.x - q.x) - (q.x - p.x) * (r.y - q.y);
+      if (val === 0) return 0;
+      return (val > 0) ? 1 : 2;
+    }
+
+    // Check whether segments p1q1 and p2q2 intersect.
+    function segmentsIntersect(p1, q1, p2, q2) {
+      const o1 = orientation(p1, q1, p2);
+      const o2 = orientation(p1, q1, q2);
+      const o3 = orientation(p2, q2, p1);
+      const o4 = orientation(p2, q2, q1);
+
+      // General case.
+      if (o1 !== o2 && o3 !== o4) return true;
+
+      // Special Cases.
+      if (o1 === 0 && onSegment(p1, p2, q1)) return true;
+      if (o2 === 0 && onSegment(p1, q2, q1)) return true;
+      if (o3 === 0 && onSegment(p2, p1, q2)) return true;
+      if (o4 === 0 && onSegment(p2, q1, q2)) return true;
+
+      return false;
+    }
+
+    // Check if a closed polygon (with duplicate start/end point) is self-intersecting.
+    function isSelfIntersecting(poly) {
+      // poly is expected to be closed.
+      const n = poly.length - 1; // Last point is duplicate.
+      for (let i = 0; i < n; i++) {
+        const a = poly[i], b = poly[i + 1];
+        for (let j = i + 1; j < n; j++) {
+          // Skip adjacent edges (they share a vertex) and the first/last edge.
+          if (j === i || j === i + 1) continue;
+          if (i === 0 && j === n - 1) continue;
+          const c = poly[j], d = poly[j + 1];
+          if (segmentsIntersect(a, b, c, d)) return true;
+        }
+      }
+      return false;
+    }
+
+    // --- Ear Clipping Step Function ---
+
     // Perform one ear clipping step.
     function stepEarClipping() {
       // Ensure we have a closed polygon.
@@ -157,6 +207,13 @@
         alert("Not enough points to triangulate.");
         return;
       }
+
+      // Validate the polygon before clipping.
+      if (isSelfIntersecting(polygon)) {
+        alert("The drawn polygon is invalid: it is self-intersecting.");
+        return;
+      }
+
       // Work with unique vertices (exclude duplicate last point).
       let poly = polygon.slice(0, polygon.length - 1);
 
@@ -177,7 +234,7 @@
       }
 
       if (earIndex === -1) {
-        alert("No ear found. The drawn region may be self-intersecting or invalid.");
+        alert("No ear found. The drawn region may be invalid.");
         return;
       }
 
@@ -192,6 +249,8 @@
       polygon = [...poly, poly[0]];
       draw({ prev, curr, next });
     }
+
+    // --- Drawing Function ---
 
     // Draw the current state.
     // If earTriangle is provided, highlight it with a red outline.
@@ -253,6 +312,8 @@
         ctx.lineWidth = 1;
       }
     }
+
+    // --- Event Bindings ---
 
     document.getElementById("nextStep").addEventListener("click", stepEarClipping);
     document.getElementById("clear").addEventListener("click", () => {
