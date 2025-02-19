@@ -1,8 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Step-by-Step Ear Clipping Visualization</title>
+  <meta charset="UTF-8" />
+  <title>Earcut Visualization</title>
+  <!-- Include Earcut from a CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/earcut@2.2.2/dist/earcut.min.js"></script>
   <style>
     canvas {
       border: 1px solid #ccc;
@@ -17,177 +19,87 @@
   <canvas id="canvas" width="600" height="400"></canvas>
   <div id="controls">
     <button id="clear">Clear</button>
-    <button id="nextStep">Next Step</button>
+    <button id="triangulate">Triangulate</button>
   </div>
 
   <script>
     const canvas = document.getElementById("canvas");
     const ctx = canvas.getContext("2d");
-    
-    // Store vertices as objects with x and y
-    let originalPoints = []; // All user-defined points
-    let polygon = [];        // Working copy of the polygon vertices
-    let triangles = [];      // Completed triangles
+    // Store vertices as a flat array: [x0, y0, x1, y1, ...]
+    let points = [];
 
-    // Capture user clicks to define the polygon
+    // Capture clicks on the canvas to define the polygon vertices.
     canvas.addEventListener("click", (e) => {
       const rect = canvas.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
-      const point = { x, y };
-      originalPoints.push(point);
-      polygon.push(point);
+      points.push(x, y);
       draw();
     });
 
-    // Clear the canvas and reset data.
+    // Function to redraw the canvas: plot points and connect them.
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Draw vertices as small circles.
+      ctx.fillStyle = "black";
+      for (let i = 0; i < points.length; i += 2) {
+        ctx.beginPath();
+        ctx.arc(points[i], points[i + 1], 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Connect the vertices if there are at least 3 points.
+      if (points.length >= 6) {
+        ctx.beginPath();
+        ctx.moveTo(points[0], points[1]);
+        for (let i = 2; i < points.length; i += 2) {
+          ctx.lineTo(points[i], points[i + 1]);
+        }
+        ctx.closePath();
+        ctx.strokeStyle = "#999";
+        ctx.stroke();
+      }
+    }
+
+    // Clear the canvas and reset the points.
     document.getElementById("clear").addEventListener("click", () => {
-      originalPoints = [];
-      polygon = [];
-      triangles = [];
+      points = [];
       ctx.clearRect(0, 0, canvas.width, canvas.height);
     });
 
-    // Geometry helper: Compute signed area of triangle (p, q, r)
-    function area(p, q, r) {
-      return (q.x - p.x) * (r.y - p.y) - (r.x - p.x) * (q.y - p.y);
-    }
-    
-    // Check if the angle at 'curr' is convex. (Assumes polygon vertices are in clockwise order.)
-    function isConvex(prev, curr, next) {
-      return area(prev, curr, next) < 0;
-    }
-    
-    // Check if point pt is inside the triangle (v1, v2, v3)
-    function isPointInTriangle(pt, v1, v2, v3) {
-      const d1 = area(pt, v1, v2);
-      const d2 = area(pt, v2, v3);
-      const d3 = area(pt, v3, v1);
-      const hasNeg = (d1 < 0) || (d2 < 0) || (d3 < 0);
-      const hasPos = (d1 > 0) || (d2 > 0) || (d3 > 0);
-      return !(hasNeg && hasPos);
-    }
-    
-    // Determine if the vertex at index i forms an ear
-    function isEar(i, poly) {
-      if (poly.length < 3) return false;
-      const prev = poly[(i - 1 + poly.length) % poly.length];
-      const curr = poly[i];
-      const next = poly[(i + 1) % poly.length];
-      
-      // The triangle must be convex.
-      if (!isConvex(prev, curr, next)) return false;
-      
-      // No other vertex should lie inside the triangle.
-      for (let j = 0; j < poly.length; j++) {
-        // Skip the vertices of the triangle
-        if (j === ((i - 1 + poly.length) % poly.length) || j === i || j === ((i + 1) % poly.length)) {
-          continue;
-        }
-        if (isPointInTriangle(poly[j], prev, curr, next)) {
-          return false;
-        }
-      }
-      return true;
-    }
-    
-    // Perform one ear clipping step: find an ear, clip it, and add the triangle to the results.
-    function stepEarClipping() {
-      if (polygon.length < 3) {
-        alert("Triangulation complete!");
+    // When the "Triangulate" button is clicked, run Earcut and draw the triangles.
+    document.getElementById("triangulate").addEventListener("click", () => {
+      if (points.length < 6) {
+        alert("Please define at least 3 points to form a polygon.");
         return;
       }
-      // If only a triangle remains, add it as the final triangle.
-      if (polygon.length === 3) {
-        triangles.push([...polygon]);
-        polygon = [];
-        draw();
-        return;
-      }
+      // Earcut returns indices into the points array.
+      const triangles = earcut(points);
       
-      // Find the first ear in the polygon.
-      let earIndex = -1;
-      for (let i = 0; i < polygon.length; i++) {
-        if (isEar(i, polygon)) {
-          earIndex = i;
-          break;
-        }
-      }
-      
-      if (earIndex === -1) {
-        alert("No ear found. The polygon might be self-intersecting.");
-        return;
-      }
-      
-      // Identify the vertices of the ear.
-      const prev = polygon[(earIndex - 1 + polygon.length) % polygon.length];
-      const curr = polygon[earIndex];
-      const next = polygon[(earIndex + 1) % polygon.length];
-      
-      // Save the ear triangle.
-      triangles.push([prev, curr, next]);
-      
-      // Remove the ear vertex from the polygon.
-      polygon.splice(earIndex, 1);
-      
-      // Redraw, highlighting the ear that was just clipped.
-      draw({ prev, curr, next });
-    }
-    
-    // Draw the current state of the visualization.
-    // If earTriangle is provided, its outline is highlighted.
-    function draw(earTriangle) {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      
-      // Draw completed triangles (fill with semi-transparent green)
-      triangles.forEach(tri => {
+      // Redraw the polygon before overlaying triangles.
+      draw();
+
+      // Draw each triangle.
+      for (let i = 0; i < triangles.length; i += 3) {
+        // Compute the vertex positions for each triangle.
+        const idx0 = triangles[i] * 2;
+        const idx1 = triangles[i + 1] * 2;
+        const idx2 = triangles[i + 2] * 2;
+
+        const p0 = [points[idx0], points[idx0 + 1]];
+        const p1 = [points[idx1], points[idx1 + 1]];
+        const p2 = [points[idx2], points[idx2 + 1]];
+
         ctx.beginPath();
-        ctx.moveTo(tri[0].x, tri[0].y);
-        ctx.lineTo(tri[1].x, tri[1].y);
-        ctx.lineTo(tri[2].x, tri[2].y);
-        ctx.closePath();
-        ctx.fillStyle = "rgba(0, 255, 0, 0.3)";
-        ctx.fill();
-        ctx.strokeStyle = "green";
-        ctx.stroke();
-      });
-      
-      // Draw the current polygon in blue.
-      if (polygon.length > 0) {
-        ctx.beginPath();
-        ctx.moveTo(polygon[0].x, polygon[0].y);
-        for (let i = 1; i < polygon.length; i++) {
-          ctx.lineTo(polygon[i].x, polygon[i].y);
-        }
-        ctx.closePath();
-        ctx.strokeStyle = "blue";
-        ctx.stroke();
-      }
-      
-      // Draw vertices as small black circles.
-      polygon.forEach(p => {
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
-        ctx.fillStyle = "black";
-        ctx.fill();
-      });
-      
-      // If an ear triangle is passed, highlight it with a red outline.
-      if (earTriangle) {
-        ctx.beginPath();
-        ctx.moveTo(earTriangle.prev.x, earTriangle.prev.y);
-        ctx.lineTo(earTriangle.curr.x, earTriangle.curr.y);
-        ctx.lineTo(earTriangle.next.x, earTriangle.next.y);
+        ctx.moveTo(p0[0], p0[1]);
+        ctx.lineTo(p1[0], p1[1]);
+        ctx.lineTo(p2[0], p2[1]);
         ctx.closePath();
         ctx.strokeStyle = "red";
-        ctx.lineWidth = 2;
         ctx.stroke();
-        ctx.lineWidth = 1;
       }
-    }
-    
-    // Bind the step function to the "Next Step" button.
-    document.getElementById("nextStep").addEventListener("click", stepEarClipping);
+    });
   </script>
 </body>
 </html>
