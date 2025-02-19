@@ -1,671 +1,105 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Cipher vs. Tracker: Game-Theoretic Privacy Battle</title>
+  <meta charset="UTF-8" />
+  <title>Earcut Visualization</title>
+  <!-- Include Earcut from a CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/earcut@2.2.2/dist/earcut.min.js"></script>
   <style>
-    /* Ensure the page and canvas fill the whole window */
-    html, body {
-      margin: 0;
-      padding: 0;
-      overflow: hidden;
-      height: 100%;
-      width: 100%;
-      background: rgb(10, 10, 10);
-    }
     canvas {
-      display: block;
+      border: 1px solid #ccc;
+      margin-bottom: 10px;
+    }
+    #controls button {
+      margin-right: 5px;
     }
   </style>
 </head>
 <body>
-  <canvas id="gameCanvas"></canvas>
+  <canvas id="canvas" width="600" height="400"></canvas>
+  <div id="controls">
+    <button id="clear">Clear</button>
+    <button id="triangulate">Triangulate</button>
+  </div>
+
   <script>
-    // Setup canvas and context
-    const canvas = document.getElementById("gameCanvas");
+    const canvas = document.getElementById("canvas");
     const ctx = canvas.getContext("2d");
-    
-    // Dynamically set canvas dimensions to fill the window
-    let WIDTH = window.innerWidth;
-    let HEIGHT = window.innerHeight;
-    canvas.width = WIDTH;
-    canvas.height = HEIGHT;
-    window.addEventListener("resize", () => {
-      WIDTH = window.innerWidth;
-      HEIGHT = window.innerHeight;
-      canvas.width = WIDTH;
-      canvas.height = HEIGHT;
-    });
+    // Store vertices as a flat array: [x0, y0, x1, y1, ...]
+    let points = [];
 
-    // Colors
-    const BLACK      = "rgb(10, 10, 10)";
-    const WHITE      = "rgb(255, 255, 255)";
-    const CYBER_BLUE = "rgb(50, 130, 255)";
-    const CYBER_GREEN= "rgb(50, 255, 130)";
-    const RED        = "rgb(200, 50, 50)";
-    const YELLOW     = "rgb(255, 200, 50)";
-    const GRAY       = "rgb(100, 100, 100)";
-
-    // Fonts
-    const FONT = "28px Arial";
-    const BIG_FONT = "36px Arial";
-
-    // ------------------
-    // Global Game States
-    // ------------------
-    // States: roleSelection, textCrawl, gamePlaying, roundSummary, gameOverScreen
-    let state = "roleSelection";
-
-    // Flags for typewriter effects
-    let openingTextInitialized = false;
-    let openingTextComplete = false;
-    let gameOverScreenInitialized = false;
-
-    // Game variables
-    let roundNumber = 1;
-    const totalRounds = 5;
-    let playerRole = null;
-    let aiRole = null;
-    let roundSummary = "";  // Story-based summary for the round.
-    let gameOver = false;
-    let waitingForNextRound = false;
-
-    // Cipher variables
-    let cipherCost = 0;
-    let cipherDataTransferred = 0;
-    const cipherCostLimit = 30;
-    const cipherDataTarget = 40;
-
-    // Tracker variables
-    let trackerIdentificationRisk = 0;
-    let trackerDataIntercepted = 0;
-    const trackerInterceptionTarget = 20;
-    const trackerIdentificationLimit = 15;
-
-    // Choices for each role
-    const cipherChoices = {
-      "Low Encryption":    { cost: 2, data: 10, security: 1 },
-      "Medium Encryption": { cost: 5, data: 7,  security: 2 },
-      "High Encryption":   { cost: 8, data: 4,  security: 3 }
-    };
-
-    const trackerChoices = {
-      "Minimum Attack": { interception: 30, risk: 1 },
-      "Medium Attack":  { interception: 50, risk: 3 },
-      "Maximum Attack": { interception: 80, risk: 5 }
-    };
-
-    // Current round choices
-    let cipherChoice = null;
-    let trackerChoice = null;
-
-    // For the game over typewriter effect
-    let completedLines = [];
-    let gameOverReason = [];
-
-    // ------------------
-    // Opening Text Variables & Helpers
-    // ------------------
-    // The opening text (formerly crawlText) is now shown using a typewriter effect.
-    const crawlText = [
-      "Year 2084: The world is shackled in a grip of data-driven tyranny.",
-      "Megacorporations rule without question, their surveillance absolute.",
-      "Every transaction, whisper, and fleeting thought is recorded,",
-      "analyzed, controlled, and weaponized against the powerless.",
-      "",
-      "Cipher: A corporate enforcer, bound by contract and control.",
-      "Encrypt. Conceal. Execute. The system rewards loyalty and obedience.",
-      "",
-      "Tracker: A rogue hacker, fighting to expose the truth.",
-      "Intercept. Extract. Eradicate. The walls of secrecy must collapse.",
-      "",
-      "The war is fought in shadows—a battle of whispers and firewalls.",
-      "Every move carries risk. Every transmission could be the last.",
-      "The megacorp is watching. The noose tightens with each cycle.",
-      "",
-      "There is no escape. There is only the game.",
-      "",
-      "Press any key to begin..."
-    ];
-    let openingCompletedLines = [];  // Stores already typed lines for the opening text.
-
-    // ------------------
-    // Utility: Word Wrap Function
-    // ------------------
-    function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
-      let words = text.split(" ");
-      let line = "";
-      let lines = [];
-      for (let n = 0; n < words.length; n++) {
-        let testLine = line + words[n] + " ";
-        let metrics = ctx.measureText(testLine);
-        let testWidth = metrics.width;
-        if (testWidth > maxWidth && n > 0) {
-          lines.push(line);
-          line = words[n] + " ";
-        } else {
-          line = testLine;
-        }
-      }
-      lines.push(line);
-      for (let i = 0; i < lines.length; i++) {
-        ctx.fillText(lines[i], x, y + i * lineHeight);
-      }
-      return lines.length;
-    }
-
-    // ------------------
-    // Mouse Events
-    // ------------------
-    let mouseX = 0;
-    let mouseY = 0;
-    canvas.addEventListener("mousemove", (e) => {
+    // Capture clicks on the canvas to define the polygon vertices.
+    canvas.addEventListener("click", (e) => {
       const rect = canvas.getBoundingClientRect();
-      mouseX = e.clientX - rect.left;
-      mouseY = e.clientY - rect.top;
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      points.push(x, y);
+      draw();
     });
 
-    // ------------------
-    // Button Class
-    // ------------------
-    class Button {
-      constructor(x, y, width, height, text, color, hoverColor) {
-        this.x = x;
-        this.y = y;
-        this.width = width;
-        this.height = height;
-        this.text = text;
-        this.color = color;
-        this.hoverColor = hoverColor;
-      }
-      
-      draw(ctx) {
-        ctx.font = FONT;
-        let textWidth = ctx.measureText(this.text).width;
-        const padding = 20;
-        if (this.width < textWidth + padding) {
-          this.width = textWidth + padding;
-        }
-        const isHover = (
-          mouseX >= this.x &&
-          mouseX <= this.x + this.width &&
-          mouseY >= this.y &&
-          mouseY <= this.y + this.height
-        );
-        ctx.fillStyle = isHover ? this.hoverColor : this.color;
-        ctx.fillRect(this.x, this.y, this.width, this.height);
-        ctx.fillStyle = WHITE;
-        ctx.fillText(this.text, this.x + (this.width - textWidth) / 2, this.y + this.height / 2 + 10);
-      }
-      
-      isClicked(x, y) {
-        return (x >= this.x && x <= this.x + this.width && y >= this.y && y <= this.y + this.height);
-      }
-    }
-
-    // ------------------------------
-    // Role Selection Buttons
-    // ------------------------------
-    const cipherButton = new Button(WIDTH * 0.28, HEIGHT * 0.4, 200, 50, "Play as Cipher", CYBER_GREEN, CYBER_BLUE);
-    const trackerButton = new Button(WIDTH * 0.55, HEIGHT * 0.4, 200, 50, "Play as Tracker", RED, GRAY);
-
-    // Decision buttons for rounds (y at 0.38 of HEIGHT)
-    const cipherButtons = [
-      new Button(WIDTH * 0.06, HEIGHT * 0.38, 200, 50, "Low Encryption", RED, CYBER_BLUE),
-      new Button(WIDTH * 0.33, HEIGHT * 0.38, 200, 50, "Medium Encryption", RED, CYBER_BLUE),
-      new Button(WIDTH * 0.60, HEIGHT * 0.38, 200, 50, "High Encryption", RED, CYBER_BLUE)
-    ];
-    const trackerButtons = [
-      new Button(WIDTH * 0.17, HEIGHT * 0.38, 200, 50, "Minimum Attack", RED, GRAY),
-      new Button(WIDTH * 0.41, HEIGHT * 0.38, 200, 50, "Medium Attack", RED, GRAY),
-      new Button(WIDTH * 0.64, HEIGHT * 0.38, 200, 50, "Maximum Attack", RED, GRAY)
-    ];
-
-    // ------------------------------
-    // Opening Text Typewriter Helpers
-    // ------------------------------
-    function drawOpeningScreen(extraLine = "", x = 50, y = 150, color = WHITE) {
-      ctx.fillStyle = BLACK;
-      ctx.fillRect(0, 0, WIDTH, HEIGHT);
-      ctx.font = BIG_FONT;
-      ctx.fillStyle = CYBER_BLUE;
-      const title = "WELCOME TO THE SYSTEM";
-      const titleWidth = ctx.measureText(title).width;
-      ctx.fillText(title, (WIDTH - titleWidth) / 2, 100);
-      
-      ctx.font = FONT;
-      ctx.fillStyle = WHITE;
-      let yOffset = 150;
-      for (let line of openingCompletedLines) {
-        ctx.fillText(line, x, yOffset);
-        yOffset += 40;
-      }
-      if (extraLine !== "") {
-        ctx.fillText(extraLine, x, yOffset);
-      }
-    }
-
-    // Modified typewriter effect: if state is not "textCrawl", then stop.
-    function typewriterEffectForOpening(text, x, y, color, delay, callback) {
-      let displayedText = "";
-      let i = 0;
-      function type() {
-        if (state !== "textCrawl") {
-          // If state has changed, cancel the effect.
-          if (callback) callback();
-          return;
-        }
-        if (i < text.length) {
-          displayedText += text[i];
-          i++;
-          drawOpeningScreen(displayedText, x, y, color);
-          setTimeout(type, delay);
-        } else {
-          openingCompletedLines.push(displayedText);
-          if (callback) callback();
-        }
-      }
-      type();
-    }
-
-    function showOpeningText() {
-      openingCompletedLines = [];
-      openingTextComplete = false;
-      let textX = 50;
-      let startY = 150;
-      function typeLine(i) {
-        if (i < crawlText.length) {
-          typewriterEffectForOpening(crawlText[i], textX, startY + i * 40, WHITE, 50, function() {
-            typeLine(i + 1);
-          });
-        } else {
-          openingTextComplete = true;
-          // Do not auto-advance; wait for a key press.
-          drawOpeningScreen();
-        }
-      }
-      typeLine(0);
-    }
-
-    // ------------------------------
-    // Keydown Handler for Opening & Round Summary
-    // ------------------------------
-    document.addEventListener("keydown", (e) => {
-      if (state === "textCrawl") {
-        if (openingTextComplete) {
-          state = "gamePlaying";
-        } else {
-          openingCompletedLines = [...crawlText];
-          openingTextComplete = true;
-          drawOpeningScreen();
-        }
-      }
-      else if (state === "roundSummary") {
-        state = "gamePlaying";
-        cipherChoice = null;
-        trackerChoice = null;
-        waitingForNextRound = false;
-      }
-    });
-
-    // ------------------------------
-    // Mouse Clicks (for Buttons)
-    // ------------------------------
-    canvas.addEventListener("mousedown", (e) => {
-      const rect = canvas.getBoundingClientRect();
-      const clickX = e.clientX - rect.left;
-      const clickY = e.clientY - rect.top;
-      if (state === "roleSelection") {
-        if (cipherButton.isClicked(clickX, clickY)) {
-          playerRole = "Cipher";
-          aiRole = "Tracker";
-          state = "textCrawl";
-          openingTextInitialized = false;
-          openingTextComplete = false;
-          console.log("[DEBUG] Player selected Cipher");
-        } else if (trackerButton.isClicked(clickX, clickY)) {
-          playerRole = "Tracker";
-          aiRole = "Cipher";
-          state = "textCrawl";
-          openingTextInitialized = false;
-          openingTextComplete = false;
-          console.log("[DEBUG] Player selected Tracker");
-        }
-      }
-      else if (state === "gamePlaying") {
-        if (!gameOver && !waitingForNextRound) {
-          if (playerRole === "Cipher" && cipherChoice === null) {
-            for (let i = 0; i < cipherButtons.length; i++) {
-              if (cipherButtons[i].isClicked(clickX, clickY)) {
-                cipherChoice = Object.keys(cipherChoices)[i];
-                trackerChoice = aiTrackerDecision();
-                console.log("[DEBUG] Cipher choice: " + cipherChoice + ", Tracker AI choice: " + trackerChoice);
-                processRound();
-              }
-            }
-          }
-          else if (playerRole === "Tracker") {
-            if (cipherChoice === null) {
-              cipherChoice = aiCipherDecision();
-              console.log("[DEBUG] AI Cipher choice: " + cipherChoice);
-            }
-            if (trackerChoice === null) {
-              for (let i = 0; i < trackerButtons.length; i++) {
-                if (trackerButtons[i].isClicked(clickX, clickY)) {
-                  trackerChoice = Object.keys(trackerChoices)[i];
-                  console.log("[DEBUG] Tracker choice: " + trackerChoice);
-                  processRound();
-                }
-              }
-            }
-          }
-        }
-      }
-    });
-
-    // ------------------------------
-    // AI Decision Functions
-    // ------------------------------
-    function aiTrackerDecision() {
-      const keys = Object.keys(trackerChoices);
-      return keys[Math.floor(Math.random() * keys.length)];
-    }
-    function aiCipherDecision() {
-      const keys = Object.keys(cipherChoices);
-      return keys[Math.floor(Math.random() * keys.length)];
-    }
-
-    // ------------------------------
-    // Process a Game Round & Show Round Summary Screen
-    // ------------------------------
-    function processRound() {
-      if (cipherChoice && trackerChoice) {
-        cipherDataTransferred += cipherChoices[cipherChoice].data;
-        cipherCost += cipherChoices[cipherChoice].cost;
-        const interceptedData = Math.floor((cipherChoices[cipherChoice].data * trackerChoices[trackerChoice].interception) / 100);
-        trackerDataIntercepted += interceptedData;
-        trackerIdentificationRisk += trackerChoices[trackerChoice].risk;
-
-        // Dry, mechanical, depressing summary:
-        roundSummary = `Round ${roundNumber} Report:
-Cipher executed "${cipherChoice}" protocol.
-Credits expended: ${cipherChoices[cipherChoice].cost}.
-Data transmitted: ${cipherChoices[cipherChoice].data} units.
-Tracker initiated "${trackerChoice}" countermeasure.
-Data intercepted: ${interceptedData} units.
-Risk increased by: ${trackerChoices[trackerChoice].risk} points.
-Totals - Cipher: ${cipherCost} credits, ${cipherDataTransferred} units sent; Tracker: ${trackerDataIntercepted} units intercepted, risk at ${trackerIdentificationRisk}.`;
-        
-        roundNumber++;
-        checkGameOverConditions();
-        if (!gameOver) {
-          state = "roundSummary";
-        }
-      }
-    }
-
-    // ------------------------------
-    // Check Game Over Conditions
-    // ------------------------------
-    function checkGameOverConditions() {
-      if (cipherDataTransferred >= cipherDataTarget && cipherCost <= cipherCostLimit) {
-        roundSummary = "Cipher Triumphs! The firewall holds.";
-        gameOverReason = [
-          "Cipher successfully encrypted and transmitted the data.",
-          "The megacorp’s secrets remain locked away in its fortress.",
-          "For now, the machine continues grinding, unquestioned, unchallenged."
-        ];
-        gameOver = true;
-        state = "gameOverScreen";
-      }
-      else if (trackerDataIntercepted >= trackerInterceptionTarget && trackerIdentificationRisk < trackerIdentificationLimit) {
-        roundSummary = "Tracker Wins! The truth escapes… for now.";
-        gameOverReason = [
-          "The intercepted data leaks to the underground network.",
-          "The people glimpse the truth before the megacorp clamps down.",
-          "New encryption protocols go live. The cycle continues."
-        ];
-        gameOver = true;
-        state = "gameOverScreen";
-      }
-      else if (cipherCost > cipherCostLimit) {
-        roundSummary = "Game Over! Cipher is financially liquidated.";
-        gameOverReason = [
-          "Cipher’s reckless spending has exceeded budget.",
-          "The megacorp does not tolerate inefficiency.",
-          "Debts are forcibly collected. Identity revoked.",
-          "Assigned a serial number, they serve as a digital slave.",
-          "Their mind, uploaded into a corporate mainframe, encrypts data forever."
-        ];
-        gameOver = true;
-        state = "gameOverScreen";
-      }
-      else if (trackerIdentificationRisk >= trackerIdentificationLimit) {
-        roundSummary = "Game Over! Tracker has been terminated.";
-        gameOverReason = [
-          "Tracker’s aggressive hacking triggered too many security alarms.",
-          "Synthetic enforcers breach their hideout in minutes.",
-          "The last thing they see is a corporate logo on a neural disruptor.",
-          "Their mind is extracted, rewritten, and turned into an AI slave.",
-          "They now hunt the very kind of dissent they once fought for."
-        ];
-        gameOver = true;
-        state = "gameOverScreen";
-      }
-      else if (roundNumber > totalRounds && !gameOver) {
-        roundSummary = "Game Over! The war grinds on.";
-        gameOverReason = [
-          "Neither Cipher nor Tracker achieved their goal in time.",
-          "The megacorp remains unshaken, its surveillance expanding.",
-          "The resistance fractures, splinters, fades into whispers in the dark.",
-          "The war was never meant to be won."
-        ];
-        gameOver = true;
-        state = "gameOverScreen";
-      }
-    }
-
-    // ------------------------------
-    // Draw the Round Summary Screen
-    // ------------------------------
-    function drawRoundSummaryScreen() {
-      ctx.fillStyle = "rgba(0, 0, 0, 0.85)";
-      ctx.fillRect(0, 0, WIDTH, HEIGHT);
-      
-      ctx.font = BIG_FONT;
-      ctx.fillStyle = CYBER_BLUE;
-      const title = "Round Aftermath";
-      const titleWidth = ctx.measureText(title).width;
-      ctx.fillText(title, (WIDTH - titleWidth) / 2, HEIGHT * 0.2);
-      
-      ctx.font = FONT;
-      ctx.fillStyle = WHITE;
-      const maxTextWidth = WIDTH - 100;
-      const lineHeight = 40;
-      let textY = HEIGHT * 0.35;
-      wrapText(ctx, roundSummary, 50, textY, maxTextWidth, lineHeight);
-      
-      ctx.font = FONT;
-      ctx.fillStyle = YELLOW;
-      const prompt = "Press any key to continue your descent...";
-      const promptWidth = ctx.measureText(prompt).width;
-      ctx.fillText(prompt, (WIDTH - promptWidth) / 2, HEIGHT * 0.85);
-    }
-
-    // ------------------------------
-    // Typewriter Effect for Game Over Screen
-    // ------------------------------
-    function typewriterEffect(text, x, y, color, delay, callback) {
-      let displayedText = "";
-      let i = 0;
-      function type() {
-        if (i < text.length) {
-          displayedText += text[i];
-          i++;
-          drawGameOverScreen(displayedText, x, y, color);
-          setTimeout(type, delay);
-        } else {
-          completedLines.push(displayedText);
-          if (callback) callback();
-        }
-      }
-      type();
-    }
-
-    function drawGameOverScreen(extraLine = "", x = 0, y = 0, color = WHITE) {
-      ctx.fillStyle = BLACK;
-      ctx.fillRect(0, 0, WIDTH, HEIGHT);
-
-      ctx.font = BIG_FONT;
-      ctx.fillStyle = CYBER_BLUE;
-      const gameOverText = "GAME OVER";
-      const gameOverTextWidth = ctx.measureText(gameOverText).width;
-      ctx.fillText(gameOverText, (WIDTH - gameOverTextWidth) / 2, 100);
-
-      ctx.font = FONT;
-      ctx.fillStyle = WHITE;
-      let yOffset = 200;
-      for (let line of completedLines) {
-        ctx.fillText(line, WIDTH/2 - 300, yOffset);
-        yOffset += 40;
-      }
-      if (extraLine !== "") {
-        ctx.fillText(extraLine, WIDTH/2 - 300, yOffset);
-      }
-
-      ctx.fillText(`Cipher Data Sent: ${cipherDataTransferred}/${cipherDataTarget}`, WIDTH/2 - 300, HEIGHT/2 + 80);
-      ctx.fillText(`Cipher Cost: ${cipherCost}/${cipherCostLimit}`, WIDTH/2 - 300, HEIGHT/2 + 110);
-      ctx.fillText(`Tracker Data Intercepted: ${trackerDataIntercepted}/${trackerInterceptionTarget}`, WIDTH/2 - 300, HEIGHT/2 + 140);
-      ctx.fillText(`Tracker Identification Risk: ${trackerIdentificationRisk}/${trackerIdentificationLimit}`, WIDTH/2 - 300, HEIGHT/2 + 170);
-    }
-
-    function showGameOverScreen() {
-      completedLines = [];
-      const textX = WIDTH/2 - 300;
-      const startY = 200;
-      typewriterEffect(roundSummary, textX, startY, CYBER_BLUE, 50, () => {
-        let yOffset = startY + 50;
-        let i = 0;
-        function typeNextLine() {
-          if (i < gameOverReason.length) {
-            typewriterEffect(gameOverReason[i], textX, yOffset, WHITE, 40, () => {
-              yOffset += 40;
-              i++;
-              typeNextLine();
-            });
-          }
-        }
-        typeNextLine();
-      });
-    }
-
-    // ------------------------------
-    // Main Update and Draw Functions
-    // ------------------------------
-    function update() {
-      // Nothing needed for opening text; typewriter functions handle that.
-    }
-
+    // Function to redraw the canvas: plot points and connect them.
     function draw() {
-      ctx.fillStyle = BLACK;
-      ctx.fillRect(0, 0, WIDTH, HEIGHT);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      if (state === "roleSelection") {
-        ctx.font = FONT;
-        ctx.fillStyle = WHITE;
-        ctx.fillText("Choose Your Role", WIDTH * 0.39, HEIGHT * 0.3);
-        cipherButton.draw(ctx);
-        trackerButton.draw(ctx);
+      // Draw vertices as small circles.
+      ctx.fillStyle = "black";
+      for (let i = 0; i < points.length; i += 2) {
+        ctx.beginPath();
+        ctx.arc(points[i], points[i + 1], 3, 0, Math.PI * 2);
+        ctx.fill();
       }
-      else if (state === "textCrawl") {
-        // Opening text is drawn via the typewriter effect functions.
-      }
-      else if (state === "gamePlaying") {
-        drawPayoffMatrix();
-        ctx.font = FONT;
-        ctx.fillStyle = WHITE;
-        ctx.fillText(`Round ${roundNumber}/${totalRounds}`, 30, 30);
-        ctx.fillStyle = CYBER_GREEN;
-        ctx.fillText(`Cipher Data Sent: ${cipherDataTransferred}/${cipherDataTarget}`, 30, 70);
-        ctx.fillStyle = CYBER_BLUE;
-        ctx.fillText(`Cipher Cost: ${cipherCost}/${cipherCostLimit}`, 30, 100);
-        ctx.fillStyle = RED;
-        ctx.fillText(`Tracker Data Intercepted: ${trackerDataIntercepted}/${trackerInterceptionTarget}`, 30, 140);
-        ctx.fillStyle = YELLOW;
-        ctx.fillText(`Tracker Identification Risk: ${trackerIdentificationRisk}/${trackerIdentificationLimit}`, 30, 170);
-        
-        if (playerRole === "Cipher") {
-          cipherButtons.forEach(btn => btn.draw(ctx));
+
+      // Connect the vertices if there are at least 3 points.
+      if (points.length >= 6) {
+        ctx.beginPath();
+        ctx.moveTo(points[0], points[1]);
+        for (let i = 2; i < points.length; i += 2) {
+          ctx.lineTo(points[i], points[i + 1]);
         }
-        else if (playerRole === "Tracker") {
-          trackerButtons.forEach(btn => btn.draw(ctx));
-        }
-      }
-      else if (state === "roundSummary") {
-        drawRoundSummaryScreen();
-      }
-      else if (state === "gameOverScreen") {
-        // Game over drawing handled by the typewriter effect.
+        ctx.closePath();
+        ctx.strokeStyle = "#999";
+        ctx.stroke();
       }
     }
 
-    function mainLoop() {
-      if (state === "textCrawl") {
-        if (!openingTextInitialized) {
-          showOpeningText();
-          openingTextInitialized = true;
-        }
-      } else if (state === "gameOverScreen") {
-        if (!gameOverScreenInitialized) {
-          showGameOverScreen();
-          gameOverScreenInitialized = true;
-        }
-      } else {
-        update();
-        draw();
+    // Clear the canvas and reset the points.
+    document.getElementById("clear").addEventListener("click", () => {
+      points = [];
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    });
+
+    // When the "Triangulate" button is clicked, run Earcut and draw the triangles.
+    document.getElementById("triangulate").addEventListener("click", () => {
+      if (points.length < 6) {
+        alert("Please define at least 3 points to form a polygon.");
+        return;
       }
-      requestAnimationFrame(mainLoop);
-    }
-    mainLoop();
+      // Earcut returns indices into the points array.
+      const triangles = earcut(points);
+      
+      // Redraw the polygon before overlaying triangles.
+      draw();
 
-    // ------------------------------
-    // Draw the Payoff Matrix
-    // ------------------------------
-    function drawPayoffMatrix() {
-      const matrixX = WIDTH * 0.20;
-      const matrixY = HEIGHT * 0.55;
-      const rowHeight = 70;
-      const colWidth = 250;
+      // Draw each triangle.
+      for (let i = 0; i < triangles.length; i += 3) {
+        // Compute the vertex positions for each triangle.
+        const idx0 = triangles[i] * 2;
+        const idx1 = triangles[i + 1] * 2;
+        const idx2 = triangles[i + 2] * 2;
 
-      ctx.font = FONT;
-      ctx.fillStyle = WHITE;
-      ctx.fillText("Cipher / Tracker", matrixX - 140, matrixY - 40);
+        const p0 = [points[idx0], points[idx0 + 1]];
+        const p1 = [points[idx1], points[idx1 + 1]];
+        const p2 = [points[idx2], points[idx2 + 1]];
 
-      const trackerKeys = Object.keys(trackerChoices);
-      for (let j = 0; j < trackerKeys.length; j++) {
-        ctx.fillText(trackerKeys[j], matrixX + j * colWidth + 50, matrixY);
+        ctx.beginPath();
+        ctx.moveTo(p0[0], p0[1]);
+        ctx.lineTo(p1[0], p1[1]);
+        ctx.lineTo(p2[0], p2[1]);
+        ctx.closePath();
+        ctx.strokeStyle = "red";
+        ctx.stroke();
       }
-
-      const cipherKeys = Object.keys(cipherChoices);
-      for (let i = 0; i < cipherKeys.length; i++) {
-        ctx.fillText(cipherKeys[i], matrixX - 240, matrixY + (i + 1) * rowHeight);
-        for (let j = 0; j < trackerKeys.length; j++) {
-          const cipherData = cipherChoices[cipherKeys[i]].data;
-          const cipherCostVal = cipherChoices[cipherKeys[i]].cost;
-          const trackerInterception = Math.floor((cipherData * trackerChoices[trackerKeys[j]].interception) / 100);
-          const trackerRisk = trackerChoices[trackerKeys[j]].risk;
-          const payoffText = `(${cipherData}D, ${cipherCostVal}C) | (${trackerInterception}I, ${trackerRisk}R)`;
-          ctx.fillText(payoffText, matrixX + j * colWidth + 20, matrixY + (i + 1) * rowHeight);
-        }
-      }
-
-      const legendY = matrixY + (cipherKeys.length + 1) * rowHeight + 10;
-      ctx.fillStyle = CYBER_BLUE;
-      ctx.fillText("Legend:", matrixX, legendY);
-      ctx.fillStyle = WHITE;
-      ctx.fillText("D = Data Sent (Cipher), C = Cost (Cipher)", matrixX, legendY + 25);
-      ctx.fillText("I = Data Intercepted (Tracker), R = Identification Risk (Tracker)", matrixX, legendY + 50);
-    }
+    });
   </script>
 </body>
 </html>
