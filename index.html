@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Earcut Animation with Step-by-Step Math Explanation</title>
+  <title>Delaunay Triangulation Animation with Math Explanation</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -51,45 +51,52 @@
       <canvas id="canvas" width="600" height="400"></canvas>
       <div id="controls">
         <button id="clear">Clear</button>
-        <button id="animate">Animate Triangulation</button>
+        <button id="animate">Animate Delaunay Triangulation</button>
       </div>
     </div>
     <div id="right-panel">
       <h2>Step-by-Step Math Explanation</h2>
       <div id="details">
         <p>
-          Click on the canvas to define your polygon. When ready, click "Animate Triangulation" to see the ear clipping algorithm in action.
+          Click on the canvas to add points. When ready, click “Animate Delaunay Triangulation” to run the Bowyer–Watson algorithm.
         </p>
         <h3>Overview</h3>
         <p>
-          The algorithm iteratively removes "ears" from the polygon. At each step, it:
+          The algorithm begins by creating a super‐triangle that encloses all points. Then, points are inserted one by one. For each point:
         </p>
         <ul>
-          <li>Determines the polygon’s orientation (using signed area).</li>
-          <li>Checks each vertex’s convexity via the cross product.</li>
-          <li>Performs a point‑in‑triangle test for other vertices.</li>
-          <li>If no other point lies within the candidate ear, it clips that ear.</li>
+          <li>Each triangle’s circumcircle is computed (using perpendicular bisectors).</li>
+          <li>If the new point lies inside a triangle’s circumcircle, that triangle is marked “bad.”</li>
+          <li>The boundary edges of the union of all bad triangles form a cavity.</li>
+          <li>New triangles are created by connecting the new point to each boundary edge.</li>
         </ul>
+        <p>
+          The in‑circle test uses the formula for the circumcenter and squared radius:
+        </p>
+        <pre>
+D = 2*(Ax*(By - Cy) + Bx*(Cy - Ay) + Cx*(Ay - By))
+Ux = ((Ax²+Ay²)*(By-Cy) + (Bx²+By²)*(Cy-Ay) + (Cx²+Cy²)*(Ay-By)) / D
+Uy = ((Ax²+Ay²)*(Cx-Bx) + (Bx²+By²)*(Ax-Cx) + (Cx²+Cy²)*(Bx-Ax)) / D
+r² = (Ax - Ux)² + (Ay - Uy)²
+        </pre>
+        <p>
+          A point P is inside the circumcircle if (P.x – Ux)² + (P.y – Uy)² < r².
+        </p>
       </div>
     </div>
   </div>
 
   <script>
+    // Canvas and details panel
     const canvas = document.getElementById("canvas");
     const ctx = canvas.getContext("2d");
     const detailsEl = document.getElementById("details");
-    // Store vertices as objects: {x, y}
-    let points = [];
 
-    // Capture user clicks to define the polygon.
-    canvas.addEventListener("click", (e) => {
-      const rect = canvas.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-      points.push({ x, y });
-      drawAll(points, []);  // Redraw current polygon.
-      updateDetails(`<p><strong>Added point:</strong> (${x.toFixed(0)}, ${y.toFixed(0)}). Total vertices: ${points.length}.</p>`);
-    });
+    // Global data: user-defined points and the current triangulation
+    let points = [];
+    let triangulation = []; // each triangle is {a, b, c} with vertices {x,y}
+    let currentPointIndex = 0;
+    let superTriangle = null; // will be created during triangulation
 
     // Append a message to the details panel.
     function updateDetails(message) {
@@ -97,188 +104,215 @@
       detailsEl.scrollTop = detailsEl.scrollHeight;
     }
 
-    // Draw the current state: finalized triangles, current polygon, vertices, and optionally the highlighted ear.
-    function drawAll(currentPoly, triangles, highlightEar = null) {
+    // Draw the current triangulation and points.
+    function drawTriangulation(highlights = {}) {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      // Draw finalized triangles (filled in semi-transparent green).
-      triangles.forEach(tri => {
+      // Draw triangles
+      triangulation.forEach(tri => {
         ctx.beginPath();
-        ctx.moveTo(tri[0].x, tri[0].y);
-        ctx.lineTo(tri[1].x, tri[1].y);
-        ctx.lineTo(tri[2].x, tri[2].y);
+        ctx.moveTo(tri.a.x, tri.a.y);
+        ctx.lineTo(tri.b.x, tri.b.y);
+        ctx.lineTo(tri.c.x, tri.c.y);
         ctx.closePath();
-        ctx.fillStyle = "rgba(0, 128, 0, 0.3)";
+        ctx.fillStyle = "rgba(0, 150, 255, 0.2)"; // light blue fill
         ctx.fill();
-        ctx.strokeStyle = "green";
+        ctx.strokeStyle = "blue";
         ctx.stroke();
       });
 
-      // Draw current polygon edges.
-      if (currentPoly.length) {
-        ctx.beginPath();
-        ctx.moveTo(currentPoly[0].x, currentPoly[0].y);
-        for (let i = 1; i < currentPoly.length; i++) {
-          ctx.lineTo(currentPoly[i].x, currentPoly[i].y);
-        }
-        if (currentPoly.length > 2) ctx.closePath();
-        ctx.strokeStyle = "#999";
-        ctx.stroke();
+      // Highlight bad triangles if provided.
+      if (highlights.badTriangles) {
+        highlights.badTriangles.forEach(tri => {
+          ctx.beginPath();
+          ctx.moveTo(tri.a.x, tri.a.y);
+          ctx.lineTo(tri.b.x, tri.b.y);
+          ctx.lineTo(tri.c.x, tri.c.y);
+          ctx.closePath();
+          ctx.fillStyle = "rgba(255, 0, 0, 0.3)";
+          ctx.fill();
+          ctx.strokeStyle = "red";
+          ctx.stroke();
+        });
       }
 
-      // Draw vertices.
-      currentPoly.forEach(pt => {
+      // Draw points
+      points.forEach(pt => {
         ctx.beginPath();
         ctx.arc(pt.x, pt.y, 3, 0, Math.PI * 2);
         ctx.fillStyle = "black";
         ctx.fill();
       });
-
-      // Highlight the current ear if provided.
-      if (highlightEar) {
-        ctx.beginPath();
-        ctx.moveTo(highlightEar[0].x, highlightEar[0].y);
-        ctx.lineTo(highlightEar[1].x, highlightEar[1].y);
-        ctx.lineTo(highlightEar[2].x, highlightEar[2].y);
-        ctx.closePath();
-        ctx.fillStyle = "rgba(255, 0, 0, 0.5)";
-        ctx.fill();
-        ctx.strokeStyle = "red";
-        ctx.stroke();
-      }
     }
 
-    // Compute the signed area to determine polygon orientation.
-    function signedArea(poly) {
-      let area = 0;
-      for (let i = 0; i < poly.length; i++) {
-        const j = (i + 1) % poly.length;
-        area += poly[i].x * poly[j].y - poly[j].x * poly[i].y;
-      }
-      return area / 2;
+    // Compute the circumcircle of a triangle.
+    function circumcircle(tri) {
+      const A = tri.a, B = tri.b, C = tri.c;
+      const d = 2 * (A.x*(B.y - C.y) + B.x*(C.y - A.y) + C.x*(A.y - B.y));
+      const Ux = (((A.x*A.x + A.y*A.y)*(B.y - C.y) +
+                  (B.x*B.x + B.y*B.y)*(C.y - A.y) +
+                  (C.x*C.x + C.y*C.y)*(A.y - B.y)) / d);
+      const Uy = (((A.x*A.x + A.y*A.y)*(C.x - B.x) +
+                  (B.x*B.x + B.y*B.y)*(A.x - C.x) +
+                  (C.x*C.x + C.y*C.y)*(B.x - A.x)) / d);
+      const center = { x: Ux, y: Uy };
+      const r2 = (A.x - Ux)**2 + (A.y - Uy)**2;
+      return { center, r2 };
     }
 
-    // Check convexity of vertex B (with neighbors A and C) using the cross product.
-    function isConvex(A, B, C, isCCW) {
-      let cross = (B.x - A.x) * (C.y - B.y) - (B.y - A.y) * (C.x - B.x);
-      return isCCW ? (cross > 0) : (cross < 0);
+    // Check if a point is inside a triangle's circumcircle.
+    function inCircumcircle(pt, tri) {
+      const circle = circumcircle(tri);
+      const dist2 = (pt.x - circle.center.x)**2 + (pt.y - circle.center.y)**2;
+      return dist2 < circle.r2;
     }
 
-    // Check if point P is inside triangle formed by V1, V2, V3.
-    function pointInTriangle(P, V1, V2, V3) {
-      function sign(p1, p2, p3) {
-        return (p1.x - p3.x) * (p2.y - p3.y) - (p2.x - p3.x) * (p1.y - p3.y);
-      }
-      let d1 = sign(P, V1, V2);
-      let d2 = sign(P, V2, V3);
-      let d3 = sign(P, V3, V1);
-      return ((d1 < 0 && d2 < 0 && d3 < 0) || (d1 > 0 && d2 > 0 && d3 > 0));
+    // Utility: compare two edges (each edge is represented by a sorted pair of points)
+    function edgeKey(edge) {
+      // sort by x then y to have a unique key.
+      const pts = [edge[0], edge[1]].sort((p1, p2) => p1.x - p2.x || p1.y - p2.y);
+      return `${pts[0].x},${pts[0].y}-${pts[1].x},${pts[1].y}`;
     }
 
-    // Animate the ear-clipping triangulation with step-by-step math explanation.
-    function earClippingAnimation() {
-      if (points.length < 3) {
-        alert("Please define a polygon with at least 3 points.");
+    // Create a super-triangle that encloses all user points.
+    function createSuperTriangle() {
+      let minX = points[0].x, minY = points[0].y, maxX = points[0].x, maxY = points[0].y;
+      points.forEach(pt => {
+        if (pt.x < minX) minX = pt.x;
+        if (pt.y < minY) minY = pt.y;
+        if (pt.x > maxX) maxX = pt.x;
+        if (pt.y > maxY) maxY = pt.y;
+      });
+      const dx = maxX - minX;
+      const dy = maxY - minY;
+      const dmax = Math.max(dx, dy);
+      const midx = (minX + maxX) / 2;
+      const midy = (minY + maxY) / 2;
+      // Create a triangle that is large enough.
+      const p1 = { x: midx - 2 * dmax, y: midy - dmax };
+      const p2 = { x: midx,         y: midy + 2 * dmax };
+      const p3 = { x: midx + 2 * dmax, y: midy - dmax };
+      return { a: p1, b: p2, c: p3 };
+    }
+
+    // The Bowyer-Watson incremental Delaunay triangulation animation.
+    function startDelaunayAnimation() {
+      if (points.length < 1) {
+        alert("Please add some points first.");
         return;
       }
-      // Clear previous explanations.
+      // Clear previous details.
       detailsEl.innerHTML = "";
-      updateDetails("<p><strong>Starting ear clipping process.</strong></p>");
-      let poly = points.slice();
-      let triangles = [];
-      let area = signedArea(poly);
-      let isCCW = area > 0;
-      updateDetails(`<p>Polygon has ${poly.length} vertices with signed area = ${area.toFixed(2)}. This indicates a ${isCCW ? "counterclockwise" : "clockwise"} orientation.</p>`);
+      updateDetails("<p><strong>Starting Delaunay Triangulation via Bowyer–Watson.</strong></p>");
+      
+      // Create super-triangle and initialize triangulation.
+      superTriangle = createSuperTriangle();
+      triangulation = [superTriangle];
+      updateDetails(`<p>Created super-triangle with vertices: (${superTriangle.a.x.toFixed(0)},${superTriangle.a.y.toFixed(0)}), 
+                     (${superTriangle.b.x.toFixed(0)},${superTriangle.b.y.toFixed(0)}), 
+                     (${superTriangle.c.x.toFixed(0)},${superTriangle.c.y.toFixed(0)}).</p>`);
+      drawTriangulation();
 
-      // Helper functions to navigate the polygon.
-      function nextIndex(i) { return (i + 1) % poly.length; }
-      function prevIndex(i) { return (i - 1 + poly.length) % poly.length; }
-
-      // Find an ear while providing detailed math for each candidate.
-      function findEar() {
-        for (let i = 0; i < poly.length; i++) {
-          let prev = poly[prevIndex(i)];
-          let curr = poly[i];
-          let next = poly[nextIndex(i)];
-          // Compute the cross product.
-          let cross = (curr.x - prev.x) * (next.y - curr.y) - (curr.y - prev.y) * (next.x - curr.x);
-          let convexMsg = `<p><strong>Vertex ${i} check:</strong> Using vertices (${prev.x.toFixed(0)}, ${prev.y.toFixed(0)}), (${curr.x.toFixed(0)}, ${curr.y.toFixed(0)}), (${next.x.toFixed(0)}, ${next.y.toFixed(0)}), the cross product is ${cross.toFixed(2)}. `;
-          convexMsg += isCCW 
-            ? (cross > 0 ? "Since polygon is CCW and cross > 0, the vertex is convex." : "Not convex, since we expect > 0 for CCW.")
-            : (cross < 0 ? "Since polygon is CW and cross < 0, the vertex is convex." : "Not convex, since we expect < 0 for CW.");
-          convexMsg += "</p>";
-          updateDetails(convexMsg);
-          if (!isConvex(prev, curr, next, isCCW)) continue;
-          
-          // Now check if any other vertex lies inside the triangle.
-          let earValid = true;
-          let earTestMsg = `<p><strong>Testing triangle:</strong> (${prev.x.toFixed(0)}, ${prev.y.toFixed(0)}), (${curr.x.toFixed(0)}, ${curr.y.toFixed(0)}), (${next.x.toFixed(0)}, ${next.y.toFixed(0)})</p>`;
-          for (let j = 0; j < poly.length; j++) {
-            if (j === i || j === prevIndex(i) || j === nextIndex(i)) continue;
-            let testPt = poly[j];
-            // Calculate the signs for the point-in-triangle test.
-            let sign1 = (testPt.x - next.x) * (prev.y - next.y) - (prev.x - next.x) * (testPt.y - next.y);
-            let sign2 = (testPt.x - prev.x) * (curr.y - prev.y) - (curr.x - prev.x) * (testPt.y - prev.y);
-            let sign3 = (testPt.x - curr.x) * (next.y - curr.y) - (next.x - curr.x) * (testPt.y - curr.y);
-            earTestMsg += `<p>For vertex ${j} at (${testPt.x.toFixed(0)}, ${testPt.y.toFixed(0)}): sign values are ${sign1.toFixed(2)}, ${sign2.toFixed(2)}, ${sign3.toFixed(2)}.</p>`;
-            if ((sign1 < 0 && sign2 < 0 && sign3 < 0) || (sign1 > 0 && sign2 > 0 && sign3 > 0)) {
-              earTestMsg += `<p>Vertex ${j} lies inside the triangle. This disqualifies the ear.</p>`;
-              earValid = false;
-              break;
-            } else {
-              earTestMsg += `<p>Vertex ${j} is not inside the triangle.</p>`;
-            }
-          }
-          updateDetails(earTestMsg);
-          if (earValid) {
-            updateDetails(`<p><strong>Valid ear found</strong> at vertex ${i}. This ear will be clipped.</p>`);
-            return { earIndex: i, ear: [prev, curr, next] };
-          }
-        }
-        return null;
-      }
-
-      // Process one ear clipping step.
-      function step() {
-        if (poly.length <= 3) {
-          if (poly.length === 3) {
-            triangles.push(poly.slice());
-            updateDetails(`<p>Final triangle formed with vertices: (${poly[0].x.toFixed(0)}, ${poly[0].y.toFixed(0)}), (${poly[1].x.toFixed(0)}, ${poly[1].y.toFixed(0)}), (${poly[2].x.toFixed(0)}, ${poly[2].y.toFixed(0)}).</p>`);
-          }
-          drawAll([], triangles);
-          updateDetails("<p><strong>Triangulation complete!</strong></p>");
-          return;
-        }
-        let earData = findEar();
-        if (!earData) {
-          updateDetails("<p>No valid ear found. The polygon might be non-simple.</p>");
-          drawAll(poly, triangles);
-          return;
-        }
-        let earIndex = earData.earIndex;
-        let ear = earData.ear;
-        // Highlight the ear.
-        drawAll(poly, triangles, ear);
-        updateDetails("<p>Highlighting the ear for 500ms before clipping it...</p>");
-        setTimeout(() => {
-          let removed = poly.splice(earIndex, 1)[0];
-          triangles.push(ear);
-          updateDetails(`<p>Clipped ear at vertex with coordinates (${removed.x.toFixed(0)}, ${removed.y.toFixed(0)}). Now ${poly.length} vertices remain.</p>`);
-          drawAll(poly, triangles);
-          setTimeout(step, 500);
-        }, 500);
-      }
-      step();
+      currentPointIndex = 0;
+      setTimeout(processNextPoint, 1000);
     }
+
+    // Process the next point insertion.
+    function processNextPoint() {
+      if (currentPointIndex >= points.length) {
+        // After all points are inserted, remove triangles connected to super-triangle vertices.
+        triangulation = triangulation.filter(tri => {
+          const verts = [tri.a, tri.b, tri.c];
+          return !verts.some(v => (
+            (v.x === superTriangle.a.x && v.y === superTriangle.a.y) ||
+            (v.x === superTriangle.b.x && v.y === superTriangle.b.y) ||
+            (v.x === superTriangle.c.x && v.y === superTriangle.c.y)
+          ));
+        });
+        updateDetails("<p><strong>Final triangulation complete!</strong></p>");
+        drawTriangulation();
+        return;
+      }
+      const p = points[currentPointIndex];
+      updateDetails(`<p><strong>Inserting point (${p.x.toFixed(0)}, ${p.y.toFixed(0)})</strong></p>`);
+      
+      // 1. Find all triangles whose circumcircle contains the point.
+      const badTriangles = [];
+      triangulation.forEach(tri => {
+        const circle = circumcircle(tri);
+        updateDetails(`<p>Triangle with vertices (${tri.a.x.toFixed(0)},${tri.a.y.toFixed(0)}), (${tri.b.x.toFixed(0)},${tri.b.y.toFixed(0)}), (${tri.c.x.toFixed(0)},${tri.c.y.toFixed(0)}) has circumcenter (${circle.center.x.toFixed(0)},${circle.center.y.toFixed(0)}) and r²=${circle.r2.toFixed(0)}.</p>`);
+        if (inCircumcircle(p, tri)) {
+          updateDetails("<p style='color:red;'>Point lies inside this circumcircle. Marking triangle as bad.</p>");
+          badTriangles.push(tri);
+        }
+      });
+      
+      // 2. Find the boundary polygon (cavity) of the bad triangles.
+      const edgeCount = {};
+      badTriangles.forEach(tri => {
+        const edges = [
+          [tri.a, tri.b],
+          [tri.b, tri.c],
+          [tri.c, tri.a]
+        ];
+        edges.forEach(edge => {
+          const key = edgeKey(edge);
+          edgeCount[key] = (edgeCount[key] || 0) + 1;
+        });
+      });
+      // Boundary edges appear exactly once.
+      const boundaryEdges = [];
+      for (let key in edgeCount) {
+        if (edgeCount[key] === 1) {
+          // Parse key to recover points.
+          const pts = key.split("-").map(s => {
+            const [x, y] = s.split(",").map(Number);
+            return { x, y };
+          });
+          boundaryEdges.push(pts);
+        }
+      }
+      updateDetails(`<p>Found ${boundaryEdges.length} boundary edge(s) defining the cavity.</p>`);
+      
+      // 3. Remove bad triangles from the triangulation.
+      triangulation = triangulation.filter(tri => !badTriangles.includes(tri));
+      
+      // 4. Create new triangles from each boundary edge to the new point.
+      boundaryEdges.forEach(edge => {
+        const newTri = { a: edge[0], b: edge[1], c: p };
+        triangulation.push(newTri);
+        updateDetails(`<p>Formed new triangle with vertices (${edge[0].x.toFixed(0)},${edge[0].y.toFixed(0)}), (${edge[1].x.toFixed(0)},${edge[1].y.toFixed(0)}), (${p.x.toFixed(0)},${p.y.toFixed(0)}).</p>`);
+      });
+      
+      // Highlight the bad triangles before removal.
+      drawTriangulation({ badTriangles });
+      setTimeout(() => {
+        drawTriangulation();
+        currentPointIndex++;
+        setTimeout(processNextPoint, 1000);
+      }, 1000);
+    }
+
+    // Event listeners for user interaction.
+    canvas.addEventListener("click", (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      points.push({ x, y });
+      drawTriangulation();
+      updateDetails(`<p>Added point (${x.toFixed(0)}, ${y.toFixed(0)}). Total points: ${points.length}.</p>`);
+    });
 
     document.getElementById("clear").addEventListener("click", () => {
       points = [];
+      triangulation = [];
+      currentPointIndex = 0;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       detailsEl.innerHTML = "<p>Canvas cleared. Click on the canvas to add points.</p>";
     });
 
     document.getElementById("animate").addEventListener("click", () => {
-      earClippingAnimation();
+      startDelaunayAnimation();
     });
   </script>
 </body>
