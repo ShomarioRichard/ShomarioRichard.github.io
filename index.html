@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Earcut Animation Visualization with Math Explanation</title>
+  <title>Earcut Animation with Step-by-Step Math Explanation</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -35,7 +35,7 @@
       margin-right: 5px;
       margin-bottom: 5px;
     }
-    h2, h3 {
+    h2, h3, h4 {
       margin-top: 0;
     }
     pre {
@@ -55,51 +55,21 @@
       </div>
     </div>
     <div id="right-panel">
-      <h2>Algorithm Explanation</h2>
+      <h2>Step-by-Step Math Explanation</h2>
       <div id="details">
-        <p>Click on the canvas to define your polygon. When you're ready, click "Animate Triangulation" to see the ear clipping algorithm in action.</p>
-        <h3>Mathematical Foundations</h3>
         <p>
-          The ear clipping algorithm is a method for decomposing a simple polygon into triangles. It works by iteratively removing "ears"—triangles that can be cut off without affecting the integrity of the polygon.
+          Click on the canvas to define your polygon. When ready, click "Animate Triangulation" to see the ear clipping algorithm in action.
         </p>
-        <h4>1. Polygon Orientation and Signed Area</h4>
+        <h3>Overview</h3>
         <p>
-          To determine the order of the vertices, the algorithm computes the signed area of the polygon:
+          The algorithm iteratively removes "ears" from the polygon. At each step, it:
         </p>
-        <pre>
-A = (1/2) * Σ (x[i]*y[i+1] - x[i+1]*y[i])
-        </pre>
-        <p>
-          A positive area indicates a counterclockwise (CCW) orientation, while a negative area indicates clockwise (CW). This orientation is crucial for later determining whether a vertex forms a convex angle.
-        </p>
-        <h4>2. Checking Convexity with the Cross Product</h4>
-        <p>
-          For any three consecutive vertices A, B, and C, the convexity at vertex B is determined by the cross product of the vectors AB and BC:
-        </p>
-        <pre>
-cross = (B.x - A.x)*(C.y - B.y) - (B.y - A.y)*(C.x - B.x)
-        </pre>
-        <p>
-          For a CCW polygon, a positive cross product indicates that the angle at B is convex. In a CW polygon, the condition is reversed. Only convex vertices can serve as the middle vertex of an "ear."
-        </p>
-        <h4>3. Identifying an Ear Using a Point-in-Triangle Test</h4>
-        <p>
-          Once a vertex is identified as convex, the triangle formed by it and its two neighbors is considered a candidate ear. However, for the triangle to be a valid ear, no other vertex of the polygon should lie inside it. This is often checked using a point-in-triangle test:
-        </p>
-        <pre>
-sign(P, V1, V2) = (P.x - V2.x) * (V1.y - V2.y) - (V1.x - V2.x) * (P.y - V2.y)
-        </pre>
-        <p>
-          A point P is inside the triangle (V1, V2, V3) if the signs of sign(P, V1, V2), sign(P, V2, V3), and sign(P, V3, V1) are all the same.
-        </p>
-        <h4>4. Clipping the Ear</h4>
-        <p>
-          When an ear is found, its central vertex is removed from the polygon, and the ear (the triangle) is added to the list of finalized triangles. The polygon is then updated, and the process repeats until the entire polygon is decomposed.
-        </p>
-        <h4>5. Why It Works</h4>
-        <p>
-          Mathematically, it has been proven that every simple polygon has at least two ears. By repeatedly clipping these ears, the algorithm guarantees that the polygon will eventually be fully triangulated. While the worst-case performance is O(n²) for n vertices, the approach is simple and robust for many practical applications.
-        </p>
+        <ul>
+          <li>Determines the polygon’s orientation (using signed area).</li>
+          <li>Checks each vertex’s convexity via the cross product.</li>
+          <li>Performs a point‑in‑triangle test for other vertices.</li>
+          <li>If no other point lies within the candidate ear, it clips that ear.</li>
+        </ul>
       </div>
     </div>
   </div>
@@ -117,52 +87,46 @@ sign(P, V1, V2) = (P.x - V2.x) * (V1.y - V2.y) - (V1.x - V2.x) * (P.y - V2.y)
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
       points.push({ x, y });
-      drawAll(points, []);  // redraw current polygon
-      updateDetails(`<p>Added point at (${x.toFixed(0)}, ${y.toFixed(0)}). Total points: ${points.length}.</p>`);
+      drawAll(points, []);  // Redraw current polygon.
+      updateDetails(`<p><strong>Added point:</strong> (${x.toFixed(0)}, ${y.toFixed(0)}). Total vertices: ${points.length}.</p>`);
     });
 
-    // Function to update the explanation panel.
+    // Append a message to the details panel.
     function updateDetails(message) {
       detailsEl.innerHTML += message;
       detailsEl.scrollTop = detailsEl.scrollHeight;
     }
 
-    // Draw the complete scene:
-    // - finalized triangles (filled green)
-    // - current polygon (outlined in gray)
-    // - vertices (black circles)
-    // - an optional highlighted ear (in red)
+    // Draw the current state: finalized triangles, current polygon, vertices, and optionally the highlighted ear.
     function drawAll(currentPoly, triangles, highlightEar = null) {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      // Draw finalized triangles (filled green)
+      // Draw finalized triangles (filled in semi-transparent green).
       triangles.forEach(tri => {
         ctx.beginPath();
         ctx.moveTo(tri[0].x, tri[0].y);
         ctx.lineTo(tri[1].x, tri[1].y);
         ctx.lineTo(tri[2].x, tri[2].y);
         ctx.closePath();
-        ctx.fillStyle = "rgba(0, 128, 0, 0.3)"; // semi-transparent green
+        ctx.fillStyle = "rgba(0, 128, 0, 0.3)";
         ctx.fill();
         ctx.strokeStyle = "green";
         ctx.stroke();
       });
 
-      // Draw current polygon edges
+      // Draw current polygon edges.
       if (currentPoly.length) {
         ctx.beginPath();
         ctx.moveTo(currentPoly[0].x, currentPoly[0].y);
         for (let i = 1; i < currentPoly.length; i++) {
           ctx.lineTo(currentPoly[i].x, currentPoly[i].y);
         }
-        if (currentPoly.length > 2) {
-          ctx.closePath();
-        }
+        if (currentPoly.length > 2) ctx.closePath();
         ctx.strokeStyle = "#999";
         ctx.stroke();
       }
 
-      // Draw vertices as black circles.
+      // Draw vertices.
       currentPoly.forEach(pt => {
         ctx.beginPath();
         ctx.arc(pt.x, pt.y, 3, 0, Math.PI * 2);
@@ -170,7 +134,7 @@ sign(P, V1, V2) = (P.x - V2.x) * (V1.y - V2.y) - (V1.x - V2.x) * (P.y - V2.y)
         ctx.fill();
       });
 
-      // If provided, highlight the current ear in semi-transparent red.
+      // Highlight the current ear if provided.
       if (highlightEar) {
         ctx.beginPath();
         ctx.moveTo(highlightEar[0].x, highlightEar[0].y);
@@ -184,7 +148,7 @@ sign(P, V1, V2) = (P.x - V2.x) * (V1.y - V2.y) - (V1.x - V2.x) * (P.y - V2.y)
       }
     }
 
-    // Helper: compute signed area to determine polygon orientation.
+    // Compute the signed area to determine polygon orientation.
     function signedArea(poly) {
       let area = 0;
       for (let i = 0; i < poly.length; i++) {
@@ -194,75 +158,92 @@ sign(P, V1, V2) = (P.x - V2.x) * (V1.y - V2.y) - (V1.x - V2.x) * (P.y - V2.y)
       return area / 2;
     }
 
-    // Helper: check if vertex b (with neighbors a and c) is convex.
-    function isConvex(a, b, c, isCCW) {
-      // Cross product of vectors (b - a) and (c - b)
-      let cross = (b.x - a.x) * (c.y - b.y) - (b.y - a.y) * (c.x - b.x);
+    // Check convexity of vertex B (with neighbors A and C) using the cross product.
+    function isConvex(A, B, C, isCCW) {
+      let cross = (B.x - A.x) * (C.y - B.y) - (B.y - A.y) * (C.x - B.x);
       return isCCW ? (cross > 0) : (cross < 0);
     }
 
-    // Helper: check if point pt is inside triangle (v1, v2, v3).
-    function pointInTriangle(pt, v1, v2, v3) {
+    // Check if point P is inside triangle formed by V1, V2, V3.
+    function pointInTriangle(P, V1, V2, V3) {
       function sign(p1, p2, p3) {
         return (p1.x - p3.x) * (p2.y - p3.y) - (p2.x - p3.x) * (p1.y - p3.y);
       }
-      let b1 = sign(pt, v1, v2) < 0;
-      let b2 = sign(pt, v2, v3) < 0;
-      let b3 = sign(pt, v3, v1) < 0;
-      return (b1 === b2) && (b2 === b3);
+      let d1 = sign(P, V1, V2);
+      let d2 = sign(P, V2, V3);
+      let d3 = sign(P, V3, V1);
+      return ((d1 < 0 && d2 < 0 && d3 < 0) || (d1 > 0 && d2 > 0 && d3 > 0));
     }
 
-    // Animate the ear-clipping (triangulation) process.
+    // Animate the ear-clipping triangulation with step-by-step math explanation.
     function earClippingAnimation() {
       if (points.length < 3) {
         alert("Please define a polygon with at least 3 points.");
         return;
       }
-      // Clear previous details.
+      // Clear previous explanations.
       detailsEl.innerHTML = "";
       updateDetails("<p><strong>Starting ear clipping process.</strong></p>");
-
-      // Make a working copy of the polygon.
       let poly = points.slice();
       let triangles = [];
-      let isCCW = signedArea(poly) > 0;
-      updateDetails(`<p>Polygon has ${poly.length} vertices and is oriented ${isCCW ? "counterclockwise" : "clockwise"}.</p>`);
+      let area = signedArea(poly);
+      let isCCW = area > 0;
+      updateDetails(`<p>Polygon has ${poly.length} vertices with signed area = ${area.toFixed(2)}. This indicates a ${isCCW ? "counterclockwise" : "clockwise"} orientation.</p>`);
 
-      // Helper functions to get neighbor indices.
+      // Helper functions to navigate the polygon.
       function nextIndex(i) { return (i + 1) % poly.length; }
       function prevIndex(i) { return (i - 1 + poly.length) % poly.length; }
 
-      // Find the first "ear" in the current polygon.
+      // Find an ear while providing detailed math for each candidate.
       function findEar() {
         for (let i = 0; i < poly.length; i++) {
           let prev = poly[prevIndex(i)];
           let curr = poly[i];
           let next = poly[nextIndex(i)];
+          // Compute the cross product.
+          let cross = (curr.x - prev.x) * (next.y - curr.y) - (curr.y - prev.y) * (next.x - curr.x);
+          let convexMsg = `<p><strong>Vertex ${i} check:</strong> Using vertices (${prev.x.toFixed(0)}, ${prev.y.toFixed(0)}), (${curr.x.toFixed(0)}, ${curr.y.toFixed(0)}), (${next.x.toFixed(0)}, ${next.y.toFixed(0)}), the cross product is ${cross.toFixed(2)}. `;
+          convexMsg += isCCW 
+            ? (cross > 0 ? "Since polygon is CCW and cross > 0, the vertex is convex." : "Not convex, since we expect > 0 for CCW.")
+            : (cross < 0 ? "Since polygon is CW and cross < 0, the vertex is convex." : "Not convex, since we expect < 0 for CW.");
+          convexMsg += "</p>";
+          updateDetails(convexMsg);
           if (!isConvex(prev, curr, next, isCCW)) continue;
-          // Ensure no other vertex is inside the triangle.
-          let earFound = true;
+          
+          // Now check if any other vertex lies inside the triangle.
+          let earValid = true;
+          let earTestMsg = `<p><strong>Testing triangle:</strong> (${prev.x.toFixed(0)}, ${prev.y.toFixed(0)}), (${curr.x.toFixed(0)}, ${curr.y.toFixed(0)}), (${next.x.toFixed(0)}, ${next.y.toFixed(0)})</p>`;
           for (let j = 0; j < poly.length; j++) {
             if (j === i || j === prevIndex(i) || j === nextIndex(i)) continue;
-            if (pointInTriangle(poly[j], prev, curr, next)) {
-              earFound = false;
+            let testPt = poly[j];
+            // Calculate the signs for the point-in-triangle test.
+            let sign1 = (testPt.x - next.x) * (prev.y - next.y) - (prev.x - next.x) * (testPt.y - next.y);
+            let sign2 = (testPt.x - prev.x) * (curr.y - prev.y) - (curr.x - prev.x) * (testPt.y - prev.y);
+            let sign3 = (testPt.x - curr.x) * (next.y - curr.y) - (next.x - curr.x) * (testPt.y - curr.y);
+            earTestMsg += `<p>For vertex ${j} at (${testPt.x.toFixed(0)}, ${testPt.y.toFixed(0)}): sign values are ${sign1.toFixed(2)}, ${sign2.toFixed(2)}, ${sign3.toFixed(2)}.</p>`;
+            if ((sign1 < 0 && sign2 < 0 && sign3 < 0) || (sign1 > 0 && sign2 > 0 && sign3 > 0)) {
+              earTestMsg += `<p>Vertex ${j} lies inside the triangle. This disqualifies the ear.</p>`;
+              earValid = false;
               break;
+            } else {
+              earTestMsg += `<p>Vertex ${j} is not inside the triangle.</p>`;
             }
           }
-          if (earFound) {
-            updateDetails(`<p>Ear found at vertex ${i} with points: (${prev.x.toFixed(0)}, ${prev.y.toFixed(0)}), (${curr.x.toFixed(0)}, ${curr.y.toFixed(0)}), (${next.x.toFixed(0)}, ${next.y.toFixed(0)}).</p>`);
+          updateDetails(earTestMsg);
+          if (earValid) {
+            updateDetails(`<p><strong>Valid ear found</strong> at vertex ${i}. This ear will be clipped.</p>`);
             return { earIndex: i, ear: [prev, curr, next] };
           }
         }
         return null;
       }
 
-      // Process one ear-clipping step.
+      // Process one ear clipping step.
       function step() {
         if (poly.length <= 3) {
-          // Last remaining triangle.
           if (poly.length === 3) {
             triangles.push(poly.slice());
-            updateDetails(`<p>Final triangle formed with points: (${poly[0].x.toFixed(0)}, ${poly[0].y.toFixed(0)}), (${poly[1].x.toFixed(0)}, ${poly[1].y.toFixed(0)}), (${poly[2].x.toFixed(0)}, ${poly[2].y.toFixed(0)}).</p>`);
+            updateDetails(`<p>Final triangle formed with vertices: (${poly[0].x.toFixed(0)}, ${poly[0].y.toFixed(0)}), (${poly[1].x.toFixed(0)}, ${poly[1].y.toFixed(0)}), (${poly[2].x.toFixed(0)}, ${poly[2].y.toFixed(0)}).</p>`);
           }
           drawAll([], triangles);
           updateDetails("<p><strong>Triangulation complete!</strong></p>");
@@ -270,7 +251,7 @@ sign(P, V1, V2) = (P.x - V2.x) * (V1.y - V2.y) - (V1.x - V2.x) * (P.y - V2.y)
         }
         let earData = findEar();
         if (!earData) {
-          updateDetails("<p>No ear found. The polygon may be non-simple.</p>");
+          updateDetails("<p>No valid ear found. The polygon might be non-simple.</p>");
           drawAll(poly, triangles);
           return;
         }
@@ -278,14 +259,11 @@ sign(P, V1, V2) = (P.x - V2.x) * (V1.y - V2.y) - (V1.x - V2.x) * (P.y - V2.y)
         let ear = earData.ear;
         // Highlight the ear.
         drawAll(poly, triangles, ear);
-        updateDetails("<p>Highlighting the ear. Waiting 500ms before clipping it...</p>");
-        // Pause to show the highlighted ear, then clip it.
+        updateDetails("<p>Highlighting the ear for 500ms before clipping it...</p>");
         setTimeout(() => {
-          // Remove the ear's vertex (the middle one).
           let removed = poly.splice(earIndex, 1)[0];
           triangles.push(ear);
-          updateDetails(`<p>Clipped ear at (${removed.x.toFixed(0)}, ${removed.y.toFixed(0)}). Ear added as a triangle. Remaining vertices: ${poly.length}.</p>`);
-          // Redraw the scene and continue after a brief delay.
+          updateDetails(`<p>Clipped ear at vertex with coordinates (${removed.x.toFixed(0)}, ${removed.y.toFixed(0)}). Now ${poly.length} vertices remain.</p>`);
           drawAll(poly, triangles);
           setTimeout(step, 500);
         }, 500);
