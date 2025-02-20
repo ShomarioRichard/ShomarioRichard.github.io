@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Earcut Animation Visualization with Explanation</title>
+  <title>Earcut Animation Visualization with Math Explanation</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -35,6 +35,14 @@
       margin-right: 5px;
       margin-bottom: 5px;
     }
+    h2, h3 {
+      margin-top: 0;
+    }
+    pre {
+      background: #eee;
+      padding: 8px;
+      overflow-x: auto;
+    }
   </style>
 </head>
 <body>
@@ -47,9 +55,51 @@
       </div>
     </div>
     <div id="right-panel">
-      <h2>Animation Explanation</h2>
+      <h2>Algorithm Explanation</h2>
       <div id="details">
         <p>Click on the canvas to define your polygon. When you're ready, click "Animate Triangulation" to see the ear clipping algorithm in action.</p>
+        <h3>Mathematical Foundations</h3>
+        <p>
+          The ear clipping algorithm is a method for decomposing a simple polygon into triangles. It works by iteratively removing "ears"—triangles that can be cut off without affecting the integrity of the polygon.
+        </p>
+        <h4>1. Polygon Orientation and Signed Area</h4>
+        <p>
+          To determine the order of the vertices, the algorithm computes the signed area of the polygon:
+        </p>
+        <pre>
+A = (1/2) * Σ (x[i]*y[i+1] - x[i+1]*y[i])
+        </pre>
+        <p>
+          A positive area indicates a counterclockwise (CCW) orientation, while a negative area indicates clockwise (CW). This orientation is crucial for later determining whether a vertex forms a convex angle.
+        </p>
+        <h4>2. Checking Convexity with the Cross Product</h4>
+        <p>
+          For any three consecutive vertices A, B, and C, the convexity at vertex B is determined by the cross product of the vectors AB and BC:
+        </p>
+        <pre>
+cross = (B.x - A.x)*(C.y - B.y) - (B.y - A.y)*(C.x - B.x)
+        </pre>
+        <p>
+          For a CCW polygon, a positive cross product indicates that the angle at B is convex. In a CW polygon, the condition is reversed. Only convex vertices can serve as the middle vertex of an "ear."
+        </p>
+        <h4>3. Identifying an Ear Using a Point-in-Triangle Test</h4>
+        <p>
+          Once a vertex is identified as convex, the triangle formed by it and its two neighbors is considered a candidate ear. However, for the triangle to be a valid ear, no other vertex of the polygon should lie inside it. This is often checked using a point-in-triangle test:
+        </p>
+        <pre>
+sign(P, V1, V2) = (P.x - V2.x) * (V1.y - V2.y) - (V1.x - V2.x) * (P.y - V2.y)
+        </pre>
+        <p>
+          A point P is inside the triangle (V1, V2, V3) if the signs of sign(P, V1, V2), sign(P, V2, V3), and sign(P, V3, V1) are all the same.
+        </p>
+        <h4>4. Clipping the Ear</h4>
+        <p>
+          When an ear is found, its central vertex is removed from the polygon, and the ear (the triangle) is added to the list of finalized triangles. The polygon is then updated, and the process repeats until the entire polygon is decomposed.
+        </p>
+        <h4>5. Why It Works</h4>
+        <p>
+          Mathematically, it has been proven that every simple polygon has at least two ears. By repeatedly clipping these ears, the algorithm guarantees that the polygon will eventually be fully triangulated. While the worst-case performance is O(n²) for n vertices, the approach is simple and robust for many practical applications.
+        </p>
       </div>
     </div>
   </div>
