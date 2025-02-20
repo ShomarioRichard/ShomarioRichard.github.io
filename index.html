@@ -2,26 +2,62 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Earcut Animation Visualization</title>
+  <title>Earcut Animation Visualization with Explanation</title>
   <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+    #container {
+      display: flex;
+      height: 100vh;
+    }
+    #left-panel {
+      flex: 2;
+      padding: 10px;
+      box-sizing: border-box;
+    }
+    #right-panel {
+      flex: 1;
+      padding: 10px;
+      background-color: #f4f4f4;
+      border-left: 1px solid #ccc;
+      box-sizing: border-box;
+      overflow-y: auto;
+    }
     canvas {
       border: 1px solid #ccc;
       margin-bottom: 10px;
+      display: block;
     }
     #controls button {
       margin-right: 5px;
+      margin-bottom: 5px;
     }
   </style>
 </head>
 <body>
-  <canvas id="canvas" width="600" height="400"></canvas>
-  <div id="controls">
-    <button id="clear">Clear</button>
-    <button id="animate">Animate Triangulation</button>
+  <div id="container">
+    <div id="left-panel">
+      <canvas id="canvas" width="600" height="400"></canvas>
+      <div id="controls">
+        <button id="clear">Clear</button>
+        <button id="animate">Animate Triangulation</button>
+      </div>
+    </div>
+    <div id="right-panel">
+      <h2>Animation Explanation</h2>
+      <div id="details">
+        <p>Click on the canvas to define your polygon. When you're ready, click "Animate Triangulation" to see the ear clipping algorithm in action.</p>
+      </div>
+    </div>
   </div>
+
   <script>
     const canvas = document.getElementById("canvas");
     const ctx = canvas.getContext("2d");
+    const detailsEl = document.getElementById("details");
     // Store vertices as objects: {x, y}
     let points = [];
 
@@ -31,12 +67,20 @@
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
       points.push({ x, y });
-      drawAll(points, []);  // draw current polygon
+      drawAll(points, []);  // redraw current polygon
+      updateDetails(`<p>Added point at (${x.toFixed(0)}, ${y.toFixed(0)}). Total points: ${points.length}.</p>`);
     });
 
+    // Function to update the explanation panel.
+    function updateDetails(message) {
+      detailsEl.innerHTML += message;
+      detailsEl.scrollTop = detailsEl.scrollHeight;
+    }
+
     // Draw the complete scene:
-    // - current polygon (not yet clipped)
-    // - finalized triangles
+    // - finalized triangles (filled green)
+    // - current polygon (outlined in gray)
+    // - vertices (black circles)
     // - an optional highlighted ear (in red)
     function drawAll(currentPoly, triangles, highlightEar = null) {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -124,10 +168,15 @@
         alert("Please define a polygon with at least 3 points.");
         return;
       }
+      // Clear previous details.
+      detailsEl.innerHTML = "";
+      updateDetails("<p><strong>Starting ear clipping process.</strong></p>");
+
       // Make a working copy of the polygon.
       let poly = points.slice();
       let triangles = [];
       let isCCW = signedArea(poly) > 0;
+      updateDetails(`<p>Polygon has ${poly.length} vertices and is oriented ${isCCW ? "counterclockwise" : "clockwise"}.</p>`);
 
       // Helper functions to get neighbor indices.
       function nextIndex(i) { return (i + 1) % poly.length; }
@@ -150,6 +199,7 @@
             }
           }
           if (earFound) {
+            updateDetails(`<p>Ear found at vertex ${i} with points: (${prev.x.toFixed(0)}, ${prev.y.toFixed(0)}), (${curr.x.toFixed(0)}, ${curr.y.toFixed(0)}), (${next.x.toFixed(0)}, ${next.y.toFixed(0)}).</p>`);
             return { earIndex: i, ear: [prev, curr, next] };
           }
         }
@@ -162,13 +212,15 @@
           // Last remaining triangle.
           if (poly.length === 3) {
             triangles.push(poly.slice());
+            updateDetails(`<p>Final triangle formed with points: (${poly[0].x.toFixed(0)}, ${poly[0].y.toFixed(0)}), (${poly[1].x.toFixed(0)}, ${poly[1].y.toFixed(0)}), (${poly[2].x.toFixed(0)}, ${poly[2].y.toFixed(0)}).</p>`);
           }
           drawAll([], triangles);
+          updateDetails("<p><strong>Triangulation complete!</strong></p>");
           return;
         }
         let earData = findEar();
         if (!earData) {
-          console.log("No ear found. The polygon may be non-simple.");
+          updateDetails("<p>No ear found. The polygon may be non-simple.</p>");
           drawAll(poly, triangles);
           return;
         }
@@ -176,12 +228,13 @@
         let ear = earData.ear;
         // Highlight the ear.
         drawAll(poly, triangles, ear);
+        updateDetails("<p>Highlighting the ear. Waiting 500ms before clipping it...</p>");
         // Pause to show the highlighted ear, then clip it.
         setTimeout(() => {
           // Remove the ear's vertex (the middle one).
-          poly.splice(earIndex, 1);
-          // Save the ear as a finalized triangle.
+          let removed = poly.splice(earIndex, 1)[0];
           triangles.push(ear);
+          updateDetails(`<p>Clipped ear at (${removed.x.toFixed(0)}, ${removed.y.toFixed(0)}). Ear added as a triangle. Remaining vertices: ${poly.length}.</p>`);
           // Redraw the scene and continue after a brief delay.
           drawAll(poly, triangles);
           setTimeout(step, 500);
@@ -193,6 +246,7 @@
     document.getElementById("clear").addEventListener("click", () => {
       points = [];
       ctx.clearRect(0, 0, canvas.width, canvas.height);
+      detailsEl.innerHTML = "<p>Canvas cleared. Click on the canvas to add points.</p>";
     });
 
     document.getElementById("animate").addEventListener("click", () => {
