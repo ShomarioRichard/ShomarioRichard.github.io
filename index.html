@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Delaunay Triangulation Animation with Math Explanation</title>
+  <title>Delaunay Triangulation Animation</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -28,8 +28,8 @@
     }
     canvas {
       border: 1px solid #ccc;
-      margin-bottom: 10px;
       display: block;
+      margin-bottom: 10px;
     }
     #controls button {
       margin-right: 5px;
@@ -55,88 +55,75 @@
       </div>
     </div>
     <div id="right-panel">
-      <h2>Step-by-Step Math Explanation</h2>
+      <h2>Delaunay Triangulation – Step-by-Step Math Explanation</h2>
       <div id="details">
         <p>
-          Click on the canvas to add points. When ready, click “Animate Delaunay Triangulation” to run the Bowyer–Watson algorithm.
-        </p>
-        <h3>Overview</h3>
-        <p>
-          The algorithm begins by creating a super‐triangle that encloses all points. Then, points are inserted one by one. For each point:
-        </p>
-        <ul>
-          <li>Each triangle’s circumcircle is computed (using perpendicular bisectors).</li>
-          <li>If the new point lies inside a triangle’s circumcircle, that triangle is marked “bad.”</li>
-          <li>The boundary edges of the union of all bad triangles form a cavity.</li>
-          <li>New triangles are created by connecting the new point to each boundary edge.</li>
-        </ul>
-        <p>
-          The in‑circle test uses the formula for the circumcenter and squared radius:
-        </p>
-        <pre>
-D = 2*(Ax*(By - Cy) + Bx*(Cy - Ay) + Cx*(Ay - By))
-Ux = ((Ax²+Ay²)*(By-Cy) + (Bx²+By²)*(Cy-Ay) + (Cx²+Cy²)*(Ay-By)) / D
-Uy = ((Ax²+Ay²)*(Cx-Bx) + (Bx²+By²)*(Ax-Cx) + (Cx²+Cy²)*(Bx-Ax)) / D
-r² = (Ax - Ux)² + (Ay - Uy)²
-        </pre>
-        <p>
-          A point P is inside the circumcircle if (P.x – Ux)² + (P.y – Uy)² < r².
+          Click on the canvas to add points. Then click "Animate Delaunay Triangulation" to see the incremental Bowyer–Watson algorithm in action.
         </p>
       </div>
     </div>
   </div>
 
   <script>
-    // Canvas and details panel
+    // Get canvas and context.
     const canvas = document.getElementById("canvas");
     const ctx = canvas.getContext("2d");
     const detailsEl = document.getElementById("details");
 
-    // Global data: user-defined points and the current triangulation
+    // Store user points (from clicks).
     let points = [];
-    let triangulation = []; // each triangle is {a, b, c} with vertices {x,y}
-    let currentPointIndex = 0;
-    let superTriangle = null; // will be created during triangulation
 
-    // Append a message to the details panel.
+    // The current triangulation (list of triangles).
+    // Each triangle is an object { a, b, c, circum }.
+    // 'a', 'b', and 'c' are vertices ({x, y}), and 'circum' is the circumcircle {x, y, r}.
+    let triangulation = [];
+
+    // Utility: update the details panel.
     function updateDetails(message) {
       detailsEl.innerHTML += message;
       detailsEl.scrollTop = detailsEl.scrollHeight;
     }
 
-    // Draw the current triangulation and points.
-    function drawTriangulation(highlights = {}) {
+    // Draw the current state: triangles, points, and (optionally) highlighted items.
+    // Optionally, highlight a set of triangles (e.g. the “bad” triangles) in a special color.
+    function drawAll(highlightTriangles = []) {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      // Draw triangles
+      // Draw triangles.
       triangulation.forEach(tri => {
         ctx.beginPath();
         ctx.moveTo(tri.a.x, tri.a.y);
         ctx.lineTo(tri.b.x, tri.b.y);
         ctx.lineTo(tri.c.x, tri.c.y);
         ctx.closePath();
-        ctx.fillStyle = "rgba(0, 150, 255, 0.2)"; // light blue fill
-        ctx.fill();
-        ctx.strokeStyle = "blue";
+        ctx.strokeStyle = "#888";
         ctx.stroke();
       });
 
-      // Highlight bad triangles if provided.
-      if (highlights.badTriangles) {
-        highlights.badTriangles.forEach(tri => {
-          ctx.beginPath();
-          ctx.moveTo(tri.a.x, tri.a.y);
-          ctx.lineTo(tri.b.x, tri.b.y);
-          ctx.lineTo(tri.c.x, tri.c.y);
-          ctx.closePath();
-          ctx.fillStyle = "rgba(255, 0, 0, 0.3)";
-          ctx.fill();
-          ctx.strokeStyle = "red";
-          ctx.stroke();
-        });
-      }
+      // Highlight specific triangles if provided.
+      highlightTriangles.forEach(tri => {
+        ctx.beginPath();
+        ctx.moveTo(tri.a.x, tri.a.y);
+        ctx.lineTo(tri.b.x, tri.b.y);
+        ctx.lineTo(tri.c.x, tri.c.y);
+        ctx.closePath();
+        ctx.fillStyle = "rgba(255, 0, 0, 0.3)";
+        ctx.fill();
+        ctx.strokeStyle = "red";
+        ctx.stroke();
+      });
 
-      // Draw points
+      // Draw circumcircles for highlighted triangles.
+      highlightTriangles.forEach(tri => {
+        if (tri.circum) {
+          ctx.beginPath();
+          ctx.arc(tri.circum.x, tri.circum.y, tri.circum.r, 0, Math.PI * 2);
+          ctx.strokeStyle = "rgba(255,0,0,0.5)";
+          ctx.stroke();
+        }
+      });
+
+      // Draw user points.
       points.forEach(pt => {
         ctx.beginPath();
         ctx.arc(pt.x, pt.y, 3, 0, Math.PI * 2);
@@ -145,175 +132,163 @@ r² = (Ax - Ux)² + (Ay - Uy)²
       });
     }
 
-    // Compute the circumcircle of a triangle.
-    function circumcircle(tri) {
-      const A = tri.a, B = tri.b, C = tri.c;
-      const d = 2 * (A.x*(B.y - C.y) + B.x*(C.y - A.y) + C.x*(A.y - B.y));
-      const Ux = (((A.x*A.x + A.y*A.y)*(B.y - C.y) +
-                  (B.x*B.x + B.y*B.y)*(C.y - A.y) +
-                  (C.x*C.x + C.y*C.y)*(A.y - B.y)) / d);
-      const Uy = (((A.x*A.x + A.y*A.y)*(C.x - B.x) +
-                  (B.x*B.x + B.y*B.y)*(A.x - C.x) +
-                  (C.x*C.x + C.y*C.y)*(B.x - A.x)) / d);
-      const center = { x: Ux, y: Uy };
-      const r2 = (A.x - Ux)**2 + (A.y - Uy)**2;
-      return { center, r2 };
+    // Compute the circumcircle (center and radius) for triangle (a, b, c).
+    function computeCircumcircle(a, b, c) {
+      const d = 2 * (a.x * (b.y - c.y) + b.x * (c.y - a.y) + c.x * (a.y - b.y));
+      if (d === 0) return null; // Degenerate triangle.
+      const ax2 = a.x * a.x + a.y * a.y;
+      const bx2 = b.x * b.x + b.y * b.y;
+      const cx2 = c.x * c.x + c.y * c.y;
+      const x = ((ax2) * (b.y - c.y) + (bx2) * (c.y - a.y) + (cx2) * (a.y - b.y)) / d;
+      const y = ((ax2) * (c.x - b.x) + (bx2) * (a.x - c.x) + (cx2) * (b.x - a.x)) / d;
+      const r = Math.sqrt((a.x - x) ** 2 + (a.y - y) ** 2);
+      return { x, y, r };
     }
 
-    // Check if a point is inside a triangle's circumcircle.
-    function inCircumcircle(pt, tri) {
-      const circle = circumcircle(tri);
-      const dist2 = (pt.x - circle.center.x)**2 + (pt.y - circle.center.y)**2;
-      return dist2 < circle.r2;
+    // Check if point p lies inside the circumcircle of triangle tri.
+    function pointInCircumcircle(p, tri) {
+      if (!tri.circum) return false;
+      const dx = p.x - tri.circum.x;
+      const dy = p.y - tri.circum.y;
+      return (dx * dx + dy * dy) < (tri.circum.r * tri.circum.r);
     }
 
-    // Utility: compare two edges (each edge is represented by a sorted pair of points)
-    function edgeKey(edge) {
-      // sort by x then y to have a unique key.
-      const pts = [edge[0], edge[1]].sort((p1, p2) => p1.x - p2.x || p1.y - p2.y);
-      return `${pts[0].x},${pts[0].y}-${pts[1].x},${pts[1].y}`;
+    // Compare two edges (order-independent). Each edge is represented as { p, q }.
+    function edgesEqual(e1, e2) {
+      return ( (e1.p.x === e2.p.x && e1.p.y === e2.p.y && e1.q.x === e2.q.x && e1.q.y === e2.q.y) ||
+               (e1.p.x === e2.q.x && e1.p.y === e2.q.y && e1.q.x === e2.p.x && e1.q.y === e2.p.y) );
     }
 
-    // Create a super-triangle that encloses all user points.
-    function createSuperTriangle() {
-      let minX = points[0].x, minY = points[0].y, maxX = points[0].x, maxY = points[0].y;
-      points.forEach(pt => {
-        if (pt.x < minX) minX = pt.x;
-        if (pt.y < minY) minY = pt.y;
-        if (pt.x > maxX) maxX = pt.x;
-        if (pt.y > maxY) maxY = pt.y;
-      });
-      const dx = maxX - minX;
-      const dy = maxY - minY;
-      const dmax = Math.max(dx, dy);
-      const midx = (minX + maxX) / 2;
-      const midy = (minY + maxY) / 2;
-      // Create a triangle that is large enough.
-      const p1 = { x: midx - 2 * dmax, y: midy - dmax };
-      const p2 = { x: midx,         y: midy + 2 * dmax };
-      const p3 = { x: midx + 2 * dmax, y: midy - dmax };
-      return { a: p1, b: p2, c: p3 };
-    }
-
-    // The Bowyer-Watson incremental Delaunay triangulation animation.
-    function startDelaunayAnimation() {
-      if (points.length < 1) {
-        alert("Please add some points first.");
-        return;
-      }
-      // Clear previous details.
-      detailsEl.innerHTML = "";
-      updateDetails("<p><strong>Starting Delaunay Triangulation via Bowyer–Watson.</strong></p>");
-      
-      // Create super-triangle and initialize triangulation.
-      superTriangle = createSuperTriangle();
-      triangulation = [superTriangle];
-      updateDetails(`<p>Created super-triangle with vertices: (${superTriangle.a.x.toFixed(0)},${superTriangle.a.y.toFixed(0)}), 
-                     (${superTriangle.b.x.toFixed(0)},${superTriangle.b.y.toFixed(0)}), 
-                     (${superTriangle.c.x.toFixed(0)},${superTriangle.c.y.toFixed(0)}).</p>`);
-      drawTriangulation();
-
-      currentPointIndex = 0;
-      setTimeout(processNextPoint, 1000);
-    }
-
-    // Process the next point insertion.
-    function processNextPoint() {
-      if (currentPointIndex >= points.length) {
-        // After all points are inserted, remove triangles connected to super-triangle vertices.
-        triangulation = triangulation.filter(tri => {
-          const verts = [tri.a, tri.b, tri.c];
-          return !verts.some(v => (
-            (v.x === superTriangle.a.x && v.y === superTriangle.a.y) ||
-            (v.x === superTriangle.b.x && v.y === superTriangle.b.y) ||
-            (v.x === superTriangle.c.x && v.y === superTriangle.c.y)
-          ));
-        });
-        updateDetails("<p><strong>Final triangulation complete!</strong></p>");
-        drawTriangulation();
-        return;
-      }
-      const p = points[currentPointIndex];
-      updateDetails(`<p><strong>Inserting point (${p.x.toFixed(0)}, ${p.y.toFixed(0)})</strong></p>`);
-      
-      // 1. Find all triangles whose circumcircle contains the point.
-      const badTriangles = [];
-      triangulation.forEach(tri => {
-        const circle = circumcircle(tri);
-        updateDetails(`<p>Triangle with vertices (${tri.a.x.toFixed(0)},${tri.a.y.toFixed(0)}), (${tri.b.x.toFixed(0)},${tri.b.y.toFixed(0)}), (${tri.c.x.toFixed(0)},${tri.c.y.toFixed(0)}) has circumcenter (${circle.center.x.toFixed(0)},${circle.center.y.toFixed(0)}) and r²=${circle.r2.toFixed(0)}.</p>`);
-        if (inCircumcircle(p, tri)) {
-          updateDetails("<p style='color:red;'>Point lies inside this circumcircle. Marking triangle as bad.</p>");
-          badTriangles.push(tri);
-        }
-      });
-      
-      // 2. Find the boundary polygon (cavity) of the bad triangles.
-      const edgeCount = {};
-      badTriangles.forEach(tri => {
-        const edges = [
-          [tri.a, tri.b],
-          [tri.b, tri.c],
-          [tri.c, tri.a]
-        ];
-        edges.forEach(edge => {
-          const key = edgeKey(edge);
-          edgeCount[key] = (edgeCount[key] || 0) + 1;
-        });
-      });
-      // Boundary edges appear exactly once.
-      const boundaryEdges = [];
-      for (let key in edgeCount) {
-        if (edgeCount[key] === 1) {
-          // Parse key to recover points.
-          const pts = key.split("-").map(s => {
-            const [x, y] = s.split(",").map(Number);
-            return { x, y };
-          });
-          boundaryEdges.push(pts);
-        }
-      }
-      updateDetails(`<p>Found ${boundaryEdges.length} boundary edge(s) defining the cavity.</p>`);
-      
-      // 3. Remove bad triangles from the triangulation.
-      triangulation = triangulation.filter(tri => !badTriangles.includes(tri));
-      
-      // 4. Create new triangles from each boundary edge to the new point.
-      boundaryEdges.forEach(edge => {
-        const newTri = { a: edge[0], b: edge[1], c: p };
-        triangulation.push(newTri);
-        updateDetails(`<p>Formed new triangle with vertices (${edge[0].x.toFixed(0)},${edge[0].y.toFixed(0)}), (${edge[1].x.toFixed(0)},${edge[1].y.toFixed(0)}), (${p.x.toFixed(0)},${p.y.toFixed(0)}).</p>`);
-      });
-      
-      // Highlight the bad triangles before removal.
-      drawTriangulation({ badTriangles });
-      setTimeout(() => {
-        drawTriangulation();
-        currentPointIndex++;
-        setTimeout(processNextPoint, 1000);
-      }, 1000);
-    }
-
-    // Event listeners for user interaction.
+    // When the canvas is clicked, add a new point.
     canvas.addEventListener("click", (e) => {
       const rect = canvas.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
       points.push({ x, y });
-      drawTriangulation();
-      updateDetails(`<p>Added point (${x.toFixed(0)}, ${y.toFixed(0)}). Total points: ${points.length}.</p>`);
+      drawAll();
+      updateDetails(`<p><strong>Added point:</strong> (${x.toFixed(0)}, ${y.toFixed(0)}). Total points: ${points.length}.</p>`);
     });
 
+    // Clear the canvas and reset.
     document.getElementById("clear").addEventListener("click", () => {
       points = [];
       triangulation = [];
-      currentPointIndex = 0;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       detailsEl.innerHTML = "<p>Canvas cleared. Click on the canvas to add points.</p>";
     });
 
-    document.getElementById("animate").addEventListener("click", () => {
-      startDelaunayAnimation();
-    });
+    // Global variable for animation control.
+    let insertionIndex = 0;
+    let pointsToInsert = [];
+
+    // Animate the Delaunay triangulation via the Bowyer–Watson algorithm.
+    function animateDelaunay() {
+      if (points.length === 0) {
+        alert("Please add some points first.");
+        return;
+      }
+      // Clear previous details.
+      detailsEl.innerHTML = "";
+
+      // Create a "super triangle" that encloses the entire canvas.
+      // Here we choose vertices well outside the canvas.
+      const margin = 1000;
+      const stA = { x: -margin, y: -margin };
+      const stB = { x: canvas.width + margin, y: -margin };
+      const stC = { x: canvas.width / 2, y: canvas.height + margin };
+      const superTriangle = {
+        a: stA,
+        b: stB,
+        c: stC,
+        circum: computeCircumcircle(stA, stB, stC)
+      };
+      triangulation = [superTriangle];
+      updateDetails(`<p><strong>Super triangle</strong> created with vertices: (${stA.x}, ${stA.y}), (${stB.x}, ${stB.y}), (${stC.x}, ${stC.y}).</p>`);
+
+      // Make a copy of the user points for processing.
+      pointsToInsert = points.slice();
+      insertionIndex = 0;
+      // Start incremental insertion.
+      insertNextPoint();
+    }
+
+    // Insert the next point in pointsToInsert into the triangulation.
+    function insertNextPoint() {
+      if (insertionIndex >= pointsToInsert.length) {
+        // All points inserted. Remove any triangle that uses a vertex of the super triangle.
+        triangulation = triangulation.filter(tri => {
+          const usesSuperVertex = (tri.a === points.superA || tri.b === points.superA || tri.c === points.superA) ||
+                                  (tri.a === points.superB || tri.b === points.superB || tri.c === points.superB) ||
+                                  (tri.a === points.superC || tri.b === points.superC || tri.c === points.superC);
+          return !usesSuperVertex;
+        });
+        drawAll();
+        updateDetails("<p><strong>Delaunay triangulation complete!</strong></p>");
+        return;
+      }
+      const p = pointsToInsert[insertionIndex];
+      updateDetails(`<p><strong>Inserting point:</strong> (${p.x.toFixed(0)}, ${p.y.toFixed(0)}).</p>`);
+      
+      // Find all triangles whose circumcircle contains p.
+      let badTriangles = [];
+      triangulation.forEach(tri => {
+        if (pointInCircumcircle(p, tri)) {
+          badTriangles.push(tri);
+        }
+      });
+      updateDetails(`<p>${badTriangles.length} triangle(s) have circumcircles that contain the point.</p>`);
+      
+      // Highlight bad triangles.
+      drawAll(badTriangles);
+      
+      // Wait a moment to let the user see the highlighted triangles.
+      setTimeout(() => {
+        // Build the boundary polygon (list of unique edges).
+        let polygonEdges = [];
+        // For each triangle in badTriangles, get its edges.
+        badTriangles.forEach(tri => {
+          const edges = [
+            { p: tri.a, q: tri.b },
+            { p: tri.b, q: tri.c },
+            { p: tri.c, q: tri.a }
+          ];
+          edges.forEach(edge => {
+            // Check if this edge is already in polygonEdges (in either direction).
+            let duplicate = polygonEdges.find(e => edgesEqual(e, edge));
+            if (duplicate) {
+              // Mark duplicate by removing it—shared edges are not boundary.
+              polygonEdges = polygonEdges.filter(e => !edgesEqual(e, edge));
+            } else {
+              polygonEdges.push(edge);
+            }
+          });
+        });
+        updateDetails(`<p>Identified ${polygonEdges.length} boundary edge(s) from the bad triangles.</p>`);
+        
+        // Remove bad triangles from the triangulation.
+        triangulation = triangulation.filter(tri => badTriangles.indexOf(tri) === -1);
+        updateDetails(`<p>Removed bad triangles. Re-triangulating the hole with new triangles.</p>`);
+        
+        // For each boundary edge, create a new triangle connecting the edge to point p.
+        polygonEdges.forEach(edge => {
+          const newTri = {
+            a: edge.p,
+            b: edge.q,
+            c: p,
+            circum: null
+          };
+          newTri.circum = computeCircumcircle(newTri.a, newTri.b, newTri.c);
+          triangulation.push(newTri);
+          updateDetails(`<p>New triangle: (${newTri.a.x.toFixed(0)}, ${newTri.a.y.toFixed(0)}), (${newTri.b.x.toFixed(0)}, ${newTri.b.y.toFixed(0)}), (${newTri.c.x.toFixed(0)}, ${newTri.c.y.toFixed(0)}).</p>`);
+        });
+        drawAll();
+        insertionIndex++;
+        // Wait before processing the next point.
+        setTimeout(insertNextPoint, 1000);
+      }, 1000);
+    }
+
+    document.getElementById("animate").addEventListener("click", animateDelaunay);
   </script>
 </body>
 </html>
