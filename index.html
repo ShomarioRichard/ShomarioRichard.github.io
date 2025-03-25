@@ -1,294 +1,177 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Delaunay Triangulation Animation</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 0;
-      padding: 0;
-    }
-    #container {
-      display: flex;
-      height: 100vh;
-    }
-    #left-panel {
-      flex: 2;
-      padding: 10px;
-      box-sizing: border-box;
-    }
-    #right-panel {
-      flex: 1;
-      padding: 10px;
-      background-color: #f4f4f4;
-      border-left: 1px solid #ccc;
-      box-sizing: border-box;
-      overflow-y: auto;
-    }
-    canvas {
-      border: 1px solid #ccc;
-      display: block;
-      margin-bottom: 10px;
-    }
-    #controls button {
-      margin-right: 5px;
-      margin-bottom: 5px;
-    }
-    h2, h3, h4 {
-      margin-top: 0;
-    }
-    pre {
-      background: #eee;
-      padding: 8px;
-      overflow-x: auto;
-    }
-  </style>
-</head>
-<body>
-  <div id="container">
-    <div id="left-panel">
-      <canvas id="canvas" width="600" height="400"></canvas>
-      <div id="controls">
-        <button id="clear">Clear</button>
-        <button id="animate">Animate Delaunay Triangulation</button>
-      </div>
-    </div>
-    <div id="right-panel">
-      <h2>Delaunay Triangulation – Step-by-Step Math Explanation</h2>
-      <div id="details">
-        <p>
-          Click on the canvas to add points. Then click "Animate Delaunay Triangulation" to see the incremental Bowyer–Watson algorithm in action.
-        </p>
-      </div>
-    </div>
-  </div>
-
-  <script>
-    // Get canvas and context.
-    const canvas = document.getElementById("canvas");
-    const ctx = canvas.getContext("2d");
-    const detailsEl = document.getElementById("details");
-
-    // Store user points (from clicks).
-    let points = [];
-
-    // The current triangulation (list of triangles).
-    // Each triangle is an object { a, b, c, circum }.
-    // 'a', 'b', and 'c' are vertices ({x, y}), and 'circum' is the circumcircle {x, y, r}.
-    let triangulation = [];
-
-    // Utility: update the details panel.
-    function updateDetails(message) {
-      detailsEl.innerHTML += message;
-      detailsEl.scrollTop = detailsEl.scrollHeight;
-    }
-
-    // Draw the current state: triangles, points, and (optionally) highlighted items.
-    // Optionally, highlight a set of triangles (e.g. the “bad” triangles) in a special color.
-    function drawAll(highlightTriangles = []) {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      // Draw triangles.
-      triangulation.forEach(tri => {
-        ctx.beginPath();
-        ctx.moveTo(tri.a.x, tri.a.y);
-        ctx.lineTo(tri.b.x, tri.b.y);
-        ctx.lineTo(tri.c.x, tri.c.y);
-        ctx.closePath();
-        ctx.strokeStyle = "#888";
-        ctx.stroke();
-      });
-
-      // Highlight specific triangles if provided.
-      highlightTriangles.forEach(tri => {
-        ctx.beginPath();
-        ctx.moveTo(tri.a.x, tri.a.y);
-        ctx.lineTo(tri.b.x, tri.b.y);
-        ctx.lineTo(tri.c.x, tri.c.y);
-        ctx.closePath();
-        ctx.fillStyle = "rgba(255, 0, 0, 0.3)";
-        ctx.fill();
-        ctx.strokeStyle = "red";
-        ctx.stroke();
-      });
-
-      // Draw circumcircles for highlighted triangles.
-      highlightTriangles.forEach(tri => {
-        if (tri.circum) {
-          ctx.beginPath();
-          ctx.arc(tri.circum.x, tri.circum.y, tri.circum.r, 0, Math.PI * 2);
-          ctx.strokeStyle = "rgba(255,0,0,0.5)";
-          ctx.stroke();
-        }
-      });
-
-      // Draw user points.
-      points.forEach(pt => {
-        ctx.beginPath();
-        ctx.arc(pt.x, pt.y, 3, 0, Math.PI * 2);
-        ctx.fillStyle = "black";
-        ctx.fill();
-      });
-    }
-
-    // Compute the circumcircle (center and radius) for triangle (a, b, c).
-    function computeCircumcircle(a, b, c) {
-      const d = 2 * (a.x * (b.y - c.y) + b.x * (c.y - a.y) + c.x * (a.y - b.y));
-      if (d === 0) return null; // Degenerate triangle.
-      const ax2 = a.x * a.x + a.y * a.y;
-      const bx2 = b.x * b.x + b.y * b.y;
-      const cx2 = c.x * c.x + c.y * c.y;
-      const x = ((ax2) * (b.y - c.y) + (bx2) * (c.y - a.y) + (cx2) * (a.y - b.y)) / d;
-      const y = ((ax2) * (c.x - b.x) + (bx2) * (a.x - c.x) + (cx2) * (b.x - a.x)) / d;
-      const r = Math.sqrt((a.x - x) ** 2 + (a.y - y) ** 2);
-      return { x, y, r };
-    }
-
-    // Check if point p lies inside the circumcircle of triangle tri.
-    function pointInCircumcircle(p, tri) {
-      if (!tri.circum) return false;
-      const dx = p.x - tri.circum.x;
-      const dy = p.y - tri.circum.y;
-      return (dx * dx + dy * dy) < (tri.circum.r * tri.circum.r);
-    }
-
-    // Compare two edges (order-independent). Each edge is represented as { p, q }.
-    function edgesEqual(e1, e2) {
-      return ( (e1.p.x === e2.p.x && e1.p.y === e2.p.y && e1.q.x === e2.q.x && e1.q.y === e2.q.y) ||
-               (e1.p.x === e2.q.x && e1.p.y === e2.q.y && e1.q.x === e2.p.x && e1.q.y === e2.p.y) );
-    }
-
-    // When the canvas is clicked, add a new point.
-    canvas.addEventListener("click", (e) => {
-      const rect = canvas.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-      points.push({ x, y });
-      drawAll();
-      updateDetails(`<p><strong>Added point:</strong> (${x.toFixed(0)}, ${y.toFixed(0)}). Total points: ${points.length}.</p>`);
-    });
-
-    // Clear the canvas and reset.
-    document.getElementById("clear").addEventListener("click", () => {
-      points = [];
-      triangulation = [];
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      detailsEl.innerHTML = "<p>Canvas cleared. Click on the canvas to add points.</p>";
-    });
-
-    // Global variable for animation control.
-    let insertionIndex = 0;
-    let pointsToInsert = [];
-
-    // Animate the Delaunay triangulation via the Bowyer–Watson algorithm.
-    function animateDelaunay() {
-      if (points.length === 0) {
-        alert("Please add some points first.");
-        return;
-      }
-      // Clear previous details.
-      detailsEl.innerHTML = "";
-
-      // Create a "super triangle" that encloses the entire canvas.
-      // Here we choose vertices well outside the canvas.
-      const margin = 1000;
-      const stA = { x: -margin, y: -margin };
-      const stB = { x: canvas.width + margin, y: -margin };
-      const stC = { x: canvas.width / 2, y: canvas.height + margin };
-      const superTriangle = {
-        a: stA,
-        b: stB,
-        c: stC,
-        circum: computeCircumcircle(stA, stB, stC)
-      };
-      triangulation = [superTriangle];
-      updateDetails(`<p><strong>Super triangle</strong> created with vertices: (${stA.x}, ${stA.y}), (${stB.x}, ${stB.y}), (${stC.x}, ${stC.y}).</p>`);
-
-      // Make a copy of the user points for processing.
-      pointsToInsert = points.slice();
-      insertionIndex = 0;
-      // Start incremental insertion.
-      insertNextPoint();
-    }
-
-    // Insert the next point in pointsToInsert into the triangulation.
-    function insertNextPoint() {
-      if (insertionIndex >= pointsToInsert.length) {
-        // All points inserted. Remove any triangle that uses a vertex of the super triangle.
-        triangulation = triangulation.filter(tri => {
-          const usesSuperVertex = (tri.a === points.superA || tri.b === points.superA || tri.c === points.superA) ||
-                                  (tri.a === points.superB || tri.b === points.superB || tri.c === points.superB) ||
-                                  (tri.a === points.superC || tri.b === points.superC || tri.c === points.superC);
-          return !usesSuperVertex;
-        });
-        drawAll();
-        updateDetails("<p><strong>Delaunay triangulation complete!</strong></p>");
-        return;
-      }
-      const p = pointsToInsert[insertionIndex];
-      updateDetails(`<p><strong>Inserting point:</strong> (${p.x.toFixed(0)}, ${p.y.toFixed(0)}).</p>`);
-      
-      // Find all triangles whose circumcircle contains p.
-      let badTriangles = [];
-      triangulation.forEach(tri => {
-        if (pointInCircumcircle(p, tri)) {
-          badTriangles.push(tri);
-        }
-      });
-      updateDetails(`<p>${badTriangles.length} triangle(s) have circumcircles that contain the point.</p>`);
-      
-      // Highlight bad triangles.
-      drawAll(badTriangles);
-      
-      // Wait a moment to let the user see the highlighted triangles.
-      setTimeout(() => {
-        // Build the boundary polygon (list of unique edges).
-        let polygonEdges = [];
-        // For each triangle in badTriangles, get its edges.
-        badTriangles.forEach(tri => {
-          const edges = [
-            { p: tri.a, q: tri.b },
-            { p: tri.b, q: tri.c },
-            { p: tri.c, q: tri.a }
-          ];
-          edges.forEach(edge => {
-            // Check if this edge is already in polygonEdges (in either direction).
-            let duplicate = polygonEdges.find(e => edgesEqual(e, edge));
-            if (duplicate) {
-              // Mark duplicate by removing it—shared edges are not boundary.
-              polygonEdges = polygonEdges.filter(e => !edgesEqual(e, edge));
-            } else {
-              polygonEdges.push(edge);
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your Company Website</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <script>
+        // Optional: Tailwind configuration to ensure consistent design
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        'sans': ['Inter', 'ui-sans-serif', 'system-ui']
+                    }
+                }
             }
-          });
-        });
-        updateDetails(`<p>Identified ${polygonEdges.length} boundary edge(s) from the bad triangles.</p>`);
-        
-        // Remove bad triangles from the triangulation.
-        triangulation = triangulation.filter(tri => badTriangles.indexOf(tri) === -1);
-        updateDetails(`<p>Removed bad triangles. Re-triangulating the hole with new triangles.</p>`);
-        
-        // For each boundary edge, create a new triangle connecting the edge to point p.
-        polygonEdges.forEach(edge => {
-          const newTri = {
-            a: edge.p,
-            b: edge.q,
-            c: p,
-            circum: null
-          };
-          newTri.circum = computeCircumcircle(newTri.a, newTri.b, newTri.c);
-          triangulation.push(newTri);
-          updateDetails(`<p>New triangle: (${newTri.a.x.toFixed(0)}, ${newTri.a.y.toFixed(0)}), (${newTri.b.x.toFixed(0)}, ${newTri.b.y.toFixed(0)}), (${newTri.c.x.toFixed(0)}, ${newTri.c.y.toFixed(0)}).</p>`);
-        });
-        drawAll();
-        insertionIndex++;
-        // Wait before processing the next point.
-        setTimeout(insertNextPoint, 1000);
-      }, 1000);
-    }
+        }
+    </script>
+</head>
+<body class="bg-white text-gray-900">
+    <header class="bg-white shadow-md fixed top-0 left-0 right-0 z-50">
+        <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+            <!-- Logo Area -->
+            <div class="flex items-center">
+                <img 
+                    src="https://via.placeholder.com/150x50" 
+                    alt="Company Logo" 
+                    class="h-10"
+                />
+            </div>
 
-    document.getElementById("animate").addEventListener("click", animateDelaunay);
-  </script>
+            <!-- Main Navigation -->
+            <nav class="hidden md:flex space-x-6">
+                <a href="#" class="text-gray-700 hover:text-blue-600 font-medium">Products</a>
+                <a href="#" class="text-gray-700 hover:text-blue-600 font-medium">Solutions</a>
+                <a href="#" class="text-gray-700 hover:text-blue-600 font-medium">Learn</a>
+                <a href="#" class="text-gray-700 hover:text-blue-600 font-medium">Support</a>
+            </nav>
+
+            <!-- Right Side Actions -->
+            <div class="flex items-center space-x-4">
+                <button class="text-gray-700 hover:text-blue-600">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    </svg>
+                </button>
+                <button class="text-gray-700 hover:text-blue-600">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="12" cy="7" r="4"></circle>
+                    </svg>
+                </button>
+                <button class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">
+                    Sign In
+                </button>
+            </div>
+
+            <!-- Mobile Menu Toggle -->
+            <button class="md:hidden text-gray-700">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="3" y1="12" x2="21" y2="12"></line>
+                    <line x1="3" y1="6" x2="21" y2="6"></line>
+                    <line x1="3" y1="18" x2="21" y2="18"></line>
+                </svg>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex-grow pt-20">
+        <!-- Hero Section -->
+        <section class="container mx-auto px-4 py-16 text-center">
+            <h1 class="text-4xl md:text-5xl font-bold text-gray-800 mb-6">
+                Welcome to Your Digital Solution
+            </h1>
+            <p class="text-xl text-gray-600 max-w-2xl mx-auto mb-8">
+                Discover innovative tools and technologies that transform the way you work
+            </p>
+            <div class="space-x-4">
+                <button class="bg-blue-600 text-white px-6 py-3 rounded-md hover:bg-blue-700">
+                    Get Started
+                </button>
+                <button class="border border-blue-600 text-blue-600 px-6 py-3 rounded-md hover:bg-blue-50">
+                    Learn More
+                </button>
+            </div>
+        </section>
+
+        <!-- Featured Products Grid -->
+        <section class="container mx-auto px-4 py-16 bg-gray-50">
+            <h2 class="text-3xl font-bold text-center mb-12">Our Products</h2>
+            <div class="grid md:grid-cols-3 gap-8">
+                <div class="bg-white shadow-lg rounded-lg p-6 text-center">
+                    <img 
+                        src="https://via.placeholder.com/300x200" 
+                        alt="Product 1" 
+                        class="mx-auto mb-6 rounded-md"
+                    />
+                    <h3 class="text-xl font-semibold mb-4">Product Name</h3>
+                    <p class="text-gray-600 mb-6">Brief description of the product</p>
+                    <button class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">
+                        Explore
+                    </button>
+                </div>
+                <div class="bg-white shadow-lg rounded-lg p-6 text-center">
+                    <img 
+                        src="https://via.placeholder.com/300x200" 
+                        alt="Product 2" 
+                        class="mx-auto mb-6 rounded-md"
+                    />
+                    <h3 class="text-xl font-semibold mb-4">Product Name</h3>
+                    <p class="text-gray-600 mb-6">Brief description of the product</p>
+                    <button class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">
+                        Explore
+                    </button>
+                </div>
+                <div class="bg-white shadow-lg rounded-lg p-6 text-center">
+                    <img 
+                        src="https://via.placeholder.com/300x200" 
+                        alt="Product 3" 
+                        class="mx-auto mb-6 rounded-md"
+                    />
+                    <h3 class="text-xl font-semibold mb-4">Product Name</h3>
+                    <p class="text-gray-600 mb-6">Brief description of the product</p>
+                    <button class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">
+                        Explore
+                    </button>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-gray-800 text-white py-12">
+        <div class="container mx-auto px-4 grid md:grid-cols-4 gap-8">
+            <div>
+                <h4 class="font-bold mb-4">Company</h4>
+                <ul class="space-y-2">
+                    <li><a href="#" class="hover:text-blue-400">About Us</a></li>
+                    <li><a href="#" class="hover:text-blue-400">Careers</a></li>
+                    <li><a href="#" class="hover:text-blue-400">News</a></li>
+                </ul>
+            </div>
+            <div>
+                <h4 class="font-bold mb-4">Support</h4>
+                <ul class="space-y-2">
+                    <li><a href="#" class="hover:text-blue-400">Help Center</a></li>
+                    <li><a href="#" class="hover:text-blue-400">Contact</a></li>
+                    <li><a href="#" class="hover:text-blue-400">Tutorials</a></li>
+                </ul>
+            </div>
+            <div>
+                <h4 class="font-bold mb-4">Resources</h4>
+                <ul class="space-y-2">
+                    <li><a href="#" class="hover:text-blue-400">Blog</a></li>
+                    <li><a href="#" class="hover:text-blue-400">Webinars</a></li>
+                    <li><a href="#" class="hover:text-blue-400">Community</a></li>
+                </ul>
+            </div>
+            <div>
+                <h4 class="font-bold mb-4">Connect</h4>
+                <ul class="space-y-2">
+                    <li><a href="#" class="hover:text-blue-400">Twitter</a></li>
+                    <li><a href="#" class="hover:text-blue-400">LinkedIn</a></li>
+                    <li><a href="#" class="hover:text-blue-400">YouTube</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="container mx-auto px-4 mt-8 pt-4 border-t border-gray-700 text-center">
+            <p class="text-sm">&copy; 2024 Your Company. All Rights Reserved.</p>
+        </div>
+    </footer>
 </body>
 </html>
