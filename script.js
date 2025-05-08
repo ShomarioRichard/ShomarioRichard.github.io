@@ -95,6 +95,73 @@ const plantTypeColors = {
     'Converted': '#008000' // Green
 };
 
+/**
+ * Clear the map and redraw all plants,
+ * converting exactly conversionPercent% to nuclear.
+ */
+function applyConversionPercentage() {
+    // Reset tracking and remove old markers
+    convertedPlants = {};
+    totalCO2Saved    = 0;
+    totalCO2Produced = 0;
+    clearMarkers();
+  
+    // Determine how many plants to convert based on the slider
+    const toConvertCount = Math.round(currentPlants.length * conversionPercent / 100);
+    // Shuffle & pick that many plant IDs
+    const shuffled   = currentPlants.slice().sort(() => Math.random() - 0.5);
+    const convertSet = new Set(shuffled.slice(0, toConvertCount).map(p => p.id));
+  
+    // Prepare counts for the legend
+    const categoryCounts = {};
+    Object.keys(plantTypeColors).forEach(cat => categoryCounts[cat] = 0);
+  
+    // Draw every plant, coloring and accounting CO₂ correctly
+    currentPlants.forEach(plant => {
+      const id          = plant.id;
+      const isConverted = convertSet.has(id);
+      const cat         = getCategory(plant.type);
+  
+      // Accumulate CO₂ produced by unconverted, saved from converted
+      if (isConverted) {
+        totalCO2Saved += co2Factors[cat] || co2Factors['Other'];
+        convertedPlants[id] = true;
+      } else {
+        totalCO2Produced += co2Factors[cat] || co2Factors['Other'];
+      }
+  
+      // Count for legend
+      categoryCounts[cat]++;
+  
+      // Draw marker
+      const marker = L.circleMarker([plant.lat, plant.lng], {
+        color:       'white',
+        weight:      2,
+        fillColor:   getColor(plant.type, isConverted),
+        radius:      20,
+        fillOpacity: 0.85
+      }).addTo(map);
+  
+      // Popup shows status + per-plant CO₂ impact
+      marker.bindPopup(`
+        <strong>${plant.name}</strong><br>
+        Type: ${plant.type}<br>
+        Category: ${cat}<br>
+        ${isConverted 
+          ? `✓ Converted — saved ${formatNumber(co2Factors[cat]||co2Factors['Other'])} t`
+          : `☐ Original — emits ${formatNumber(co2Factors[cat]||co2Factors['Other'])} t`
+        }
+      `);
+  
+      markers.push(marker);
+    });
+  
+    // Update summary and legend now that everything is redrawn
+    updateCO2Summary();
+    updateLegend(categoryCounts);
+  }
+  
+
 // Function to get category from plant type
 function getCategory(type) {
     // Handle NaN values from JSON
@@ -606,69 +673,3 @@ yearSlider.addEventListener("input", () => {
     loadYear(selectedYear);
 });
 
-/**
- * Clear the map and redraw all plants,
- * converting exactly conversionPercent% to nuclear.
- */
-function applyConversionPercentage() {
-    // Reset tracking and remove old markers
-    convertedPlants = {};
-    totalCO2Saved    = 0;
-    totalCO2Produced = 0;
-    clearMarkers();
-  
-    // Determine how many plants to convert based on the slider
-    const toConvertCount = Math.round(currentPlants.length * conversionPercent / 100);
-    // Shuffle & pick that many plant IDs
-    const shuffled   = currentPlants.slice().sort(() => Math.random() - 0.5);
-    const convertSet = new Set(shuffled.slice(0, toConvertCount).map(p => p.id));
-  
-    // Prepare counts for the legend
-    const categoryCounts = {};
-    Object.keys(plantTypeColors).forEach(cat => categoryCounts[cat] = 0);
-  
-    // Draw every plant, coloring and accounting CO₂ correctly
-    currentPlants.forEach(plant => {
-      const id          = plant.id;
-      const isConverted = convertSet.has(id);
-      const cat         = getCategory(plant.type);
-  
-      // Accumulate CO₂ produced by unconverted, saved from converted
-      if (isConverted) {
-        totalCO2Saved += co2Factors[cat] || co2Factors['Other'];
-        convertedPlants[id] = true;
-      } else {
-        totalCO2Produced += co2Factors[cat] || co2Factors['Other'];
-      }
-  
-      // Count for legend
-      categoryCounts[cat]++;
-  
-      // Draw marker
-      const marker = L.circleMarker([plant.lat, plant.lng], {
-        color:       'white',
-        weight:      2,
-        fillColor:   getColor(plant.type, isConverted),
-        radius:      20,
-        fillOpacity: 0.85
-      }).addTo(map);
-  
-      // Popup shows status + per-plant CO₂ impact
-      marker.bindPopup(`
-        <strong>${plant.name}</strong><br>
-        Type: ${plant.type}<br>
-        Category: ${cat}<br>
-        ${isConverted 
-          ? `✓ Converted — saved ${formatNumber(co2Factors[cat]||co2Factors['Other'])} t`
-          : `☐ Original — emits ${formatNumber(co2Factors[cat]||co2Factors['Other'])} t`
-        }
-      `);
-  
-      markers.push(marker);
-    });
-  
-    // Update summary and legend now that everything is redrawn
-    updateCO2Summary();
-    updateLegend(categoryCounts);
-  }
-  
