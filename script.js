@@ -71,3 +71,29 @@ yearSlider.addEventListener("input", () => {
   const selectedYear = parseInt(yearSlider.value);
   loadYear(selectedYear);
 });
+
+// Add legend to map
+const legend = L.control({ position: "bottomright" });
+
+legend.onAdd = function () {
+  const div = L.DomUtil.create("div", "legend");
+  const types = {
+    "Coal": "black",
+    "Natural Gas": "orange",
+    "Nuclear": "purple",
+    "Hydro": "blue",
+    "Wind": "green",
+    "Solar": "yellow",
+    "Other": "gray"
+  };
+
+  div.innerHTML += "<strong>Plant Type</strong><br>";
+  for (const [type, color] of Object.entries(types)) {
+    div.innerHTML += `<i style="background:${color}"></i>${type}<br>`;
+  }
+
+  return div;
+};
+
+legend.addTo(map);
+

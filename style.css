@@ -15,13 +15,33 @@ body {
   }
   
   #map {
-    height: 600px;
+    height: 90vh;
     width: 100%;
+    position: relative;
+    z-index: 1;
   }
   
   #summary {
     text-align: center;
     padding: 10px;
     font-weight: bold;
+  }
+  
+  /* Legend container */
+  .legend {
+    background: white;
+    padding: 10px;
+    line-height: 1.4em;
+    border-radius: 6px;
+    box-shadow: 0 0 5px rgba(0,0,0,0.3);
+    font-size: 14px;
+  }
+  
+  .legend i {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    margin-right: 8px;
+    border-radius: 50%;
   }
   
