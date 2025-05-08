@@ -440,41 +440,52 @@ function tryNextYear(years, index) {
         });
 }
 
-// Function to update the legend with plant counts
+// Function to update the legend with plant counts and trigger chart redraw
 function updateLegend(categoryCounts) {
     // Remove existing legend
     const existingLegend = document.querySelector('.legend');
-    if (existingLegend) existingLegend.remove();
-  
+    if (existingLegend) {
+        existingLegend.remove();
+    }
+    
     // Create new legend
     const legend = L.control({ position: "bottomright" });
     legend.onAdd = function () {
-      const div = L.DomUtil.create("div", "legend");
-      div.innerHTML += "<strong>Plant Types</strong><br>";
-  
-      Object.entries(plantTypeColors).forEach(([category, color]) => {
-        if (category !== 'Converted') {
-          const count      = categoryCounts[category] || 0;
-          const co2PerPlant= co2Factors[category] || co2Factors['Other'];
-          div.innerHTML += `
-            <i style="background:${color}"></i>
-            ${category} (${count}) – ${formatNumber(co2PerPlant)} t/yr per plant<br>
-          `;
-        }
-      });
-  
-      // Converted count
-      const convertedCount = Object.keys(convertedPlants).length;
-      div.innerHTML += `
-        <i style="background:${plantTypeColors['Converted']}"></i>
-        Converted (${convertedCount})<br>
-      `;
-  
-      return div;
+        const div = L.DomUtil.create("div", "legend");
+        
+        div.innerHTML += "<strong>Plant Types</strong><br>";
+        
+        // Add entries for each plant type with counts and CO2 impact
+        Object.entries(plantTypeColors).forEach(([category, color]) => {
+            if (category !== 'Converted') {
+                const count = categoryCounts[category] || 0;
+                const co2PerPlant = co2Factors[category] || co2Factors['Other'];
+                div.innerHTML += `
+                    <i style="background:${color}"></i>
+                    ${category} (${count}) – ${formatNumber(co2PerPlant)} t/yr per plant<br>
+                `;
+            }
+        });
+        
+        // Add converted plant entry at the end
+        const convertedCount = Object.keys(convertedPlants).length;
+        div.innerHTML += `
+            <i style="background:${plantTypeColors['Converted']}"></i>
+            Converted (${convertedCount})<br>
+        `;
+        
+        return div;
     };
     legend.addTo(map);
-  }
-  
+
+    // --- Store these counts for chart use ---
+    if (!yearlyData[currentYear]) yearlyData[currentYear] = {};
+    yearlyData[currentYear].countsByCategory = categoryCounts;
+
+    // --- Redraw all Plotly charts with the latest data ---
+    drawCharts();
+}
+
 
 // Check if any JSON file exists and create JSON files if needed
 function createJSONFiles() {
@@ -594,12 +605,16 @@ function updateCO2Summary() {
     }
 }
 
-// At the end, just initialize the map:
+// Run file check on startup
 createJSONFiles();
-loadYear(parseInt(yearSlider.value, 10));
+
+// Initialize map with starting year
+loadYear(parseInt(yearSlider.value));
+
+// Add event listener for year slider
 yearSlider.addEventListener("input", () => {
-  const selectedYear = parseInt(yearSlider.value, 10);
-  loadYear(selectedYear);
+    const selectedYear = parseInt(yearSlider.value);
+    loadYear(selectedYear);
 });
 
 /**
@@ -669,4 +684,71 @@ function applyConversionPercentage() {
   }
 
 
- 
+  /**
+ * Draw all four charts using Plotly.
+ */
+function drawCharts() {
+    // 1) Time series of cumulative CO2 produced & saved
+    const years = allYears.filter(y => y <= currentYear);
+    const producedTS = years.map(y => yearlyData[y]?.produced || 0);
+    const savedTS    = years.map(y => yearlyData[y]?.saved    || 0);
+  
+    Plotly.newPlot('chart1', [
+      { x: years, y: producedTS, name: 'Produced', type: 'scatter' },
+      { x: years, y: savedTS,    name: 'Saved',    type: 'scatter' }
+    ], {
+      title: 'Cumulative CO₂ Over Time',
+      xaxis: { title: 'Year' }, yaxis: { title: 'CO₂ (tons)' }
+    });
+  
+    // 2) Bar chart: CO2 produced by category in current year
+    const counts = Object.entries(plantTypeColors)
+      .filter(([cat]) => cat !== 'Converted')
+      .map(([cat]) => ({
+        category: cat,
+        co2: (yearlyData[currentYear]?.producedByCategory?.[cat] || 0)
+      }));
+  
+    Plotly.newPlot('chart2', [{
+      x: counts.map(c => c.category),
+      y: counts.map(c => c.co2),
+      type: 'bar'
+    }], {
+      title: `CO₂ Produced by Fuel Type in ${currentYear}`,
+      xaxis: { title: 'Fuel Type' }, yaxis: { title: 'CO₂ (tons)' }
+    });
+  
+    // 3) Pie chart: Plant type distribution
+    const dist = Object.entries(plantTypeColors)
+      .filter(([cat]) => cat !== 'Converted')
+      .map(([cat]) => ({
+        category: cat,
+        count: yearlyData[currentYear]?.countsByCategory?.[cat] || 0
+      }));
+  
+    Plotly.newPlot('chart3', [{
+      labels: dist.map(d => d.category),
+      values: dist.map(d => d.count),
+      type: 'pie'
+    }], { title: `Plant Count by Type in ${currentYear}` });
+  
+    // 4) Gauge: % of CO2 saved vs potential
+    const producedNow = yearlyData[currentYear]?.produced || 0;
+    const savedNow    = yearlyData[currentYear]?.saved    || 0;
+    const potential   = producedNow + savedNow;
+    const percentSaved = potential > 0 ? (savedNow / potential) * 100 : 0;
+  
+    Plotly.newPlot('chart4', [{
+      type: "indicator",
+      mode: "gauge+number",
+      value: percentSaved,
+      title: { text: "CO₂ Saved (%)" },
+      gauge: {
+        axis: { range: [0,100] },
+        bar: { color: "#008000" }
+      }
+    }], { title: `% of Yearly CO₂ Eliminated in ${currentYear}` });
+  }
+  
+  
+

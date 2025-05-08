@@ -1,9 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Nuclear Power Conversion Map</title>
+  …
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
   <link rel="stylesheet" href="style.css" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
 </head>
@@ -20,6 +19,15 @@
   <div id="map"></div>
   <div id="summary">
     <p id="co2"></p>
+    <p id="co2Produced"></p>
+  </div>
+
+  <!-- Chart containers -->
+  <div class="charts">
+    <div id="chart1" class="chart"></div>
+    <div id="chart2" class="chart"></div>
+    <div id="chart3" class="chart"></div>
+    <div id="chart4" class="chart"></div>
   </div>
 
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
