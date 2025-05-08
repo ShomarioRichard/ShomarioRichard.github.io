@@ -6,6 +6,12 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
 }).addTo(map);
 
+// Helper function for formatting coordinates safely
+function safeFixed(value, digits = 4) {
+    return (typeof value === "number" && !isNaN(value)) ? value.toFixed(digits) : "N/A";
+}
+
+
 // Array to store markers for easy removal when changing years
 let markers = [];
 let totalCO2Saved = 0;
@@ -158,7 +164,7 @@ function loadYear(year) {
                     Type: ${type || 'Unknown'}<br>
                     Category: ${category}<br>
                     Status: ${converted ? 'Converted to Clean Energy' : 'Original Power Source'}<br>
-                    Coordinates: ${plant.lat.toFixed(4)}, ${plant.lng.toFixed(4)}
+                    Coordinates: ${safeFixed(plant.lat)}, ${plant.lng.toFixed(4)}
                 `);
                 
                 // Add click event for conversion
