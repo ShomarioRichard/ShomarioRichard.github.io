@@ -48,9 +48,6 @@ percentSlider.addEventListener('input', () => {
 });
 
 
-currentPlants = handleNaN(data);       // keep a clean copy
-applyConversionPercentage();           // draw X% converted
-
 
 
 // Define categories for simplifying the many power plant types
@@ -206,6 +203,11 @@ function loadYear(year) {
             
             // Handle any NaN values in the data
             const cleanData = handleNaN(data);
+
+            // capture this year’s raw data, then draw with conversion %
+            currentPlants = cleanData;
+            applyConversionPercentage();
+
             
             // Calculate category counts for the legend and CO2 totals
             const categoryCounts = {};
