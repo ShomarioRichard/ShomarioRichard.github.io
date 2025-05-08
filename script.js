@@ -16,10 +16,13 @@ let markers = [];
 let totalCO2Saved = 0;
 let totalCO2Produced = 0;
 
-// Track CO2 data by year for cumulative calculations
+// Track yearly CO2 data for chronological cumulative calculations
 let yearlyData = {};
 let currentYear = 2023;
-let previousYears = [];
+let allYears = [];
+for (let year = 2015; year <= 2023; year++) {
+    allYears.push(year);
+}
 
 // Get DOM elements
 const yearSlider = document.getElementById("yearRange");
@@ -519,25 +522,32 @@ function formatNumber(number) {
     }
 }
 
-// Function to update CO2 summary displays showing cumulative totals
+// Function to update CO2 summary displays showing true chronological cumulative totals
 function updateCO2Summary() {
-    // Calculate cumulative CO2 produced and saved
-    let cumulativeCO2Produced = totalCO2Produced;
-    let cumulativeCO2Saved = totalCO2Saved;
+    // Calculate cumulative CO2 for all years up to and including the current year
+    let cumulativeCO2Produced = 0;
+    let cumulativeCO2Saved = 0;
     
-    // Add CO2 from all previous years that have been visited
-    previousYears.forEach(prevYear => {
-        if (yearlyData[prevYear]) {
-            cumulativeCO2Produced += yearlyData[prevYear].produced;
-            cumulativeCO2Saved += yearlyData[prevYear].saved;
+    // Add all years' data in chronological order up to the current year
+    allYears.forEach(year => {
+        if (year <= currentYear) {
+            if (year === currentYear) {
+                // Current year data is in the active variables
+                cumulativeCO2Produced += totalCO2Produced;
+                cumulativeCO2Saved += totalCO2Saved;
+            } else if (yearlyData[year]) {
+                // Previous years data is stored in yearlyData
+                cumulativeCO2Produced += yearlyData[year].produced;
+                cumulativeCO2Saved += yearlyData[year].saved;
+            }
         }
     });
     
     // Update the CO2 saved display with cumulative values
     const co2Element = document.getElementById("co2");
     co2Element.innerHTML = `
-        <div>Cumulative CO2 Saved: ${formatNumber(cumulativeCO2Saved)} tons</div>
-        <div>Cumulative CO2 Produced: ${formatNumber(cumulativeCO2Produced)} tons</div>
+        <div>Cumulative CO2 Produced (2015-${currentYear}): ${formatNumber(cumulativeCO2Produced)} tons</div>
+        <div>Cumulative CO2 Saved (2015-${currentYear}): ${formatNumber(cumulativeCO2Saved)} tons</div>
         <div>Net CO2 Impact: ${formatNumber(cumulativeCO2Produced - cumulativeCO2Saved)} tons</div>
         <div class="year-info">Year ${currentYear}: Produced ${formatNumber(totalCO2Produced)} - Saved ${formatNumber(totalCO2Saved)}</div>
     `;
@@ -554,7 +564,17 @@ function updateCO2Summary() {
     }
 }
 
-
+// CO2 emission factors per plant type (tons per year)
+const co2Factors = {
+    'Coal': 2_000_000,       // High emissions
+    'Natural Gas': 1_000_000, // Medium emissions 
+    'Oil': 1_500_000,         // Medium-high emissions
+    'Nuclear': 50_000,        // Very low (for plant operations, not the actual nuclear process)
+    'Hydro': 30_000,          // Very low (for infrastructure maintenance)
+    'Wind': 20_000,           // Minimal (for maintenance)
+    'Solar': 20_000,          // Minimal (for maintenance)
+    'Other': 500_000          // Moderate default
+};
 
 // Run file check on startup
 createJSONFiles();
