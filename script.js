@@ -32,6 +32,27 @@ const co2Display = document.getElementById("co2");
 // Track which plants are "converted" by their ID
 let convertedPlants = {};
 
+// A place to store this year’s raw plant data
+let currentPlants = [];
+
+// Conversion slider state
+let conversionPercent = 0;
+const percentSlider = document.getElementById('percentSlider');
+const percentLabel  = document.getElementById('percentLabel');
+
+// When the user drags the % slider, re-draw
+percentSlider.addEventListener('input', () => {
+  conversionPercent = parseInt(percentSlider.value, 10);
+  percentLabel.textContent = `${conversionPercent}%`;
+  applyConversionPercentage();
+});
+
+
+currentPlants = handleNaN(data);       // keep a clean copy
+applyConversionPercentage();           // draw X% converted
+
+
+
 // Define categories for simplifying the many power plant types
 const typeCategories = {
     'Coal': ['Conventional Steam Coal', 'Coal'],
@@ -582,3 +603,68 @@ yearSlider.addEventListener("input", () => {
     const selectedYear = parseInt(yearSlider.value);
     loadYear(selectedYear);
 });
+
+/**
+ * Clear the map and redraw all plants,
+ * converting exactly conversionPercent% to nuclear.
+ */
+function applyConversionPercentage() {
+    // reset
+    convertedPlants = {};
+    totalCO2Saved    = 0;
+    totalCO2Produced = 0;
+    clearMarkers();
+  
+    // pick a random subset of plant IDs to convert
+    const toConvertCount = Math.round(currentPlants.length * conversionPercent / 100);
+    const shuffled       = currentPlants.slice().sort(() => Math.random() - 0.5);
+    const convertSet     = new Set(shuffled.slice(0, toConvertCount).map(p => p.id));
+  
+    // track legend counts
+    const categoryCounts = {};
+    Object.keys(plantTypeColors).forEach(cat => categoryCounts[cat] = 0);
+  
+    // draw every plant
+    currentPlants.forEach(plant => {
+      const id        = plant.id;
+      const isConverted = convertSet.has(id);
+      const cat       = getCategory(plant.type);
+  
+      // accumulate production *only* for unconverted plants
+      if (!isConverted) {
+        totalCO2Produced += co2Factors[cat] || co2Factors['Other'];
+      } else {
+        totalCO2Saved += co2Factors[cat] || co2Factors['Other'];
+        convertedPlants[id] = true;
+      }
+  
+      // count for legend
+      categoryCounts[cat]++;
+  
+      // draw marker
+      const marker = L.circleMarker([plant.lat, plant.lng], {
+        color:      'white',
+        weight:     2,
+        fillColor:  getColor(plant.type, isConverted),
+        radius:     20,
+        fillOpacity:0.85
+      }).addTo(map);
+  
+      marker.bindPopup(`
+        <strong>${plant.name}</strong><br>
+        Type: ${plant.type}<br>
+        Category: ${cat}<br>
+        ${isConverted 
+          ? `<em>Converted</em><br>✓ CO₂ saved: ${formatNumber(co2Factors[cat]||co2Factors['Other'])} t` 
+          : `<em>Original</em><br>☐ CO₂ emitted: ${formatNumber(co2Factors[cat]||co2Factors['Other'])} t`
+        }
+      `);
+  
+      markers.push(marker);
+    });
+  
+    // update both summary and legend
+    updateCO2Summary();
+    updateLegend(categoryCounts);
+  }
+  
