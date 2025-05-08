@@ -164,7 +164,7 @@ function loadYear(year) {
                     Type: ${type || 'Unknown'}<br>
                     Category: ${category}<br>
                     Status: ${converted ? 'Converted to Clean Energy' : 'Original Power Source'}<br>
-                    Coordinates: ${safeFixed(plant.lat)}, ${plant.lng.toFixed(4)}
+                    Coordinates: ${safeFixed(plant.lat)}, ${safeFixed(plant.lng)}
                 `);
                 
                 // Add click event for conversion
