@@ -1,177 +1,23 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Your Company Website</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
-    <script>
-        // Optional: Tailwind configuration to ensure consistent design
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: {
-                        'sans': ['Inter', 'ui-sans-serif', 'system-ui']
-                    }
-                }
-            }
-        }
-    </script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Nuclear Transition Impact Map</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
 </head>
-<body class="bg-white text-gray-900">
-    <header class="bg-white shadow-md fixed top-0 left-0 right-0 z-50">
-        <div class="container mx-auto px-4 py-3 flex justify-between items-center">
-            <!-- Logo Area -->
-            <div class="flex items-center">
-                <img 
-                    src="https://via.placeholder.com/150x50" 
-                    alt="Company Logo" 
-                    class="h-10"
-                />
-            </div>
-
-            <!-- Main Navigation -->
-            <nav class="hidden md:flex space-x-6">
-                <a href="#" class="text-gray-700 hover:text-blue-600 font-medium">Products</a>
-                <a href="#" class="text-gray-700 hover:text-blue-600 font-medium">Solutions</a>
-                <a href="#" class="text-gray-700 hover:text-blue-600 font-medium">Learn</a>
-                <a href="#" class="text-gray-700 hover:text-blue-600 font-medium">Support</a>
-            </nav>
-
-            <!-- Right Side Actions -->
-            <div class="flex items-center space-x-4">
-                <button class="text-gray-700 hover:text-blue-600">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="11" cy="11" r="8"></circle>
-                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                    </svg>
-                </button>
-                <button class="text-gray-700 hover:text-blue-600">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                        <circle cx="12" cy="7" r="4"></circle>
-                    </svg>
-                </button>
-                <button class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">
-                    Sign In
-                </button>
-            </div>
-
-            <!-- Mobile Menu Toggle -->
-            <button class="md:hidden text-gray-700">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <line x1="3" y1="12" x2="21" y2="12"></line>
-                    <line x1="3" y1="6" x2="21" y2="6"></line>
-                    <line x1="3" y1="18" x2="21" y2="18"></line>
-                </svg>
-            </button>
-        </div>
-    </header>
-
-    <!-- Main Content Area -->
-    <main class="flex-grow pt-20">
-        <!-- Hero Section -->
-        <section class="container mx-auto px-4 py-16 text-center">
-            <h1 class="text-4xl md:text-5xl font-bold text-gray-800 mb-6">
-                Welcome to Your Digital Solution
-            </h1>
-            <p class="text-xl text-gray-600 max-w-2xl mx-auto mb-8">
-                Discover innovative tools and technologies that transform the way you work
-            </p>
-            <div class="space-x-4">
-                <button class="bg-blue-600 text-white px-6 py-3 rounded-md hover:bg-blue-700">
-                    Get Started
-                </button>
-                <button class="border border-blue-600 text-blue-600 px-6 py-3 rounded-md hover:bg-blue-50">
-                    Learn More
-                </button>
-            </div>
-        </section>
-
-        <!-- Featured Products Grid -->
-        <section class="container mx-auto px-4 py-16 bg-gray-50">
-            <h2 class="text-3xl font-bold text-center mb-12">Our Products</h2>
-            <div class="grid md:grid-cols-3 gap-8">
-                <div class="bg-white shadow-lg rounded-lg p-6 text-center">
-                    <img 
-                        src="https://via.placeholder.com/300x200" 
-                        alt="Product 1" 
-                        class="mx-auto mb-6 rounded-md"
-                    />
-                    <h3 class="text-xl font-semibold mb-4">Product Name</h3>
-                    <p class="text-gray-600 mb-6">Brief description of the product</p>
-                    <button class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">
-                        Explore
-                    </button>
-                </div>
-                <div class="bg-white shadow-lg rounded-lg p-6 text-center">
-                    <img 
-                        src="https://via.placeholder.com/300x200" 
-                        alt="Product 2" 
-                        class="mx-auto mb-6 rounded-md"
-                    />
-                    <h3 class="text-xl font-semibold mb-4">Product Name</h3>
-                    <p class="text-gray-600 mb-6">Brief description of the product</p>
-                    <button class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">
-                        Explore
-                    </button>
-                </div>
-                <div class="bg-white shadow-lg rounded-lg p-6 text-center">
-                    <img 
-                        src="https://via.placeholder.com/300x200" 
-                        alt="Product 3" 
-                        class="mx-auto mb-6 rounded-md"
-                    />
-                    <h3 class="text-xl font-semibold mb-4">Product Name</h3>
-                    <p class="text-gray-600 mb-6">Brief description of the product</p>
-                    <button class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">
-                        Explore
-                    </button>
-                </div>
-            </div>
-        </section>
-    </main>
-
-    <!-- Footer -->
-    <footer class="bg-gray-800 text-white py-12">
-        <div class="container mx-auto px-4 grid md:grid-cols-4 gap-8">
-            <div>
-                <h4 class="font-bold mb-4">Company</h4>
-                <ul class="space-y-2">
-                    <li><a href="#" class="hover:text-blue-400">About Us</a></li>
-                    <li><a href="#" class="hover:text-blue-400">Careers</a></li>
-                    <li><a href="#" class="hover:text-blue-400">News</a></li>
-                </ul>
-            </div>
-            <div>
-                <h4 class="font-bold mb-4">Support</h4>
-                <ul class="space-y-2">
-                    <li><a href="#" class="hover:text-blue-400">Help Center</a></li>
-                    <li><a href="#" class="hover:text-blue-400">Contact</a></li>
-                    <li><a href="#" class="hover:text-blue-400">Tutorials</a></li>
-                </ul>
-            </div>
-            <div>
-                <h4 class="font-bold mb-4">Resources</h4>
-                <ul class="space-y-2">
-                    <li><a href="#" class="hover:text-blue-400">Blog</a></li>
-                    <li><a href="#" class="hover:text-blue-400">Webinars</a></li>
-                    <li><a href="#" class="hover:text-blue-400">Community</a></li>
-                </ul>
-            </div>
-            <div>
-                <h4 class="font-bold mb-4">Connect</h4>
-                <ul class="space-y-2">
-                    <li><a href="#" class="hover:text-blue-400">Twitter</a></li>
-                    <li><a href="#" class="hover:text-blue-400">LinkedIn</a></li>
-                    <li><a href="#" class="hover:text-blue-400">YouTube</a></li>
-                </ul>
-            </div>
-        </div>
-        <div class="container mx-auto px-4 mt-8 pt-4 border-t border-gray-700 text-center">
-            <p class="text-sm">&copy; 2024 Your Company. All Rights Reserved.</p>
-        </div>
-    </footer>
+<body>
+  <h1>Nuclear Power Conversion Map</h1>
+  <div id="controls">
+    <label for="yearRange">Switch Year: <span id="yearLabel">2025</span></label>
+    <input type="range" id="yearRange" min="2020" max="2050" value="2025" />
+  </div>
+  <div id="map"></div>
+  <div id="summary">
+    <p id="co2">Total CO2 Saved: 0 tons</p>
+  </div>
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="script.js"></script>
 </body>
 </html>
