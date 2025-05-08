@@ -1,23 +1,28 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Nuclear Transition Impact Map</title>
-  <link rel="stylesheet" href="style.css" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Nuclear Transition Impact Map</title>
+<link rel="stylesheet" href="style.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
 </head>
 <body>
-  <h1>Nuclear Power Conversion Map</h1>
-  <div id="controls">
-    <label for="yearRange">Switch Year: <span id="yearLabel">2023</span></label>
-    <input type="range" id="yearRange" min="2015" max="2023" value="2023" />
-  </div>
-  <div id="map"></div>
-  <div id="summary">
-    <p id="co2">Total CO2 Saved: 0 tons</p>
-  </div>
-  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-  <script src="script.js"></script>
+<h1>Nuclear Power Conversion Map</h1>
+<div id="controls">
+<label for="yearRange">Switch Year: <span id="yearLabel">2023</span></label>
+<input type="range" id="yearRange" min="2015" max="2023" value="2023" />
+<div><small>Click on a power plant to convert it to clean energy</small></div>
+</div>
+<div id="map"></div>
+<div id="summary">
+<div id="co2">
+  <div>Total CO2 Saved: 0 tons</div>
+  <div>Total CO2 Produced: 0 tons</div>
+  <div>Net CO2 Impact: 0 tons</div>
+</div>
+</div>
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script src="script.js"></script>
 </body>
 </html>

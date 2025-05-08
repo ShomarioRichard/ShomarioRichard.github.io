@@ -11,10 +11,10 @@ function safeFixed(value, digits = 4) {
     return (typeof value === "number" && !isNaN(value)) ? value.toFixed(digits) : "N/A";
 }
 
-
 // Array to store markers for easy removal when changing years
 let markers = [];
 let totalCO2Saved = 0;
+let totalCO2Produced = 0;
 
 // Get DOM elements
 const yearSlider = document.getElementById("yearRange");
@@ -34,6 +34,18 @@ const typeCategories = {
     'Wind': ['Wind'],
     'Solar': ['Solar Photovoltaic', 'Solar Thermal'],
     'Other': [] // Anything else falls here
+};
+
+// CO2 emission factors per plant type (tons per year)
+const co2Factors = {
+    'Coal': 2_000_000,       // High emissions
+    'Natural Gas': 1_000_000, // Medium emissions 
+    'Oil': 1_500_000,         // Medium-high emissions
+    'Nuclear': 50_000,        // Very low (for plant operations, not the actual nuclear process)
+    'Hydro': 30_000,          // Very low (for infrastructure maintenance)
+    'Wind': 20_000,           // Minimal (for maintenance)
+    'Solar': 20_000,          // Minimal (for maintenance)
+    'Other': 500_000          // Moderate default
 };
 
 // Reverse mapping to categorize plant types
@@ -101,17 +113,50 @@ function handleNaN(data) {
     });
 }
 
+// Function to format large numbers with commas and units
+function formatNumber(number) {
+    if (number >= 1_000_000_000) {
+        return (number / 1_000_000_000).toFixed(2) + ' billion';
+    } else if (number >= 1_000_000) {
+        return (number / 1_000_000).toFixed(2) + ' million';
+    } else {
+        return number.toLocaleString();
+    }
+}
+
+// Function to update CO2 summary displays
+function updateCO2Summary() {
+    // Update the CO2 saved display
+    co2Display.innerHTML = `
+        <div>Total CO2 Saved: ${formatNumber(totalCO2Saved)} tons</div>
+        <div>Total CO2 Produced: ${formatNumber(totalCO2Produced)} tons</div>
+        <div>Net CO2 Impact: ${formatNumber(totalCO2Produced - totalCO2Saved)} tons</div>
+    `;
+    
+    // Add color coding based on net impact
+    const netImpact = totalCO2Produced - totalCO2Saved;
+    
+    if (netImpact <= 0) {
+        co2Display.style.backgroundColor = '#c8e6c9'; // Light green for positive impact
+    } else if (netImpact < totalCO2Produced * 0.5) {
+        co2Display.style.backgroundColor = '#fff9c4'; // Light yellow for moderate impact
+    } else {
+        co2Display.style.backgroundColor = '#ffcdd2'; // Light red for high impact
+    }
+}
+
 // Function to load plant data for a specific year
 function loadYear(year) {
     clearMarkers();
     yearLabel.textContent = year;
     
-    // Reset CO2 counter when changing years if no plants have been converted
+    // Reset CO2 counter when changing years
     if (Object.keys(convertedPlants).length === 0) {
         totalCO2Saved = 0;
     }
     
-    co2Display.textContent = `Total CO2 Saved: ${totalCO2Saved.toLocaleString()} tons`;
+    // Reset CO2 production counter for each year
+    totalCO2Produced = 0;
     
     // Create URL for current year's JSON file
     const jsonUrl = `plants_${year}.json`;
@@ -132,6 +177,12 @@ function loadYear(year) {
             // Handle any NaN values in the data
             const cleanData = handleNaN(data);
             
+            // Calculate category counts for the legend and CO2 totals
+            const categoryCounts = {};
+            Object.keys(plantTypeColors).forEach(category => {
+                categoryCounts[category] = 0;
+            });
+            
             // Process and display each plant
             cleanData.forEach(plant => {
                 const id = plant.id;
@@ -148,6 +199,14 @@ function loadYear(year) {
                 // Get the simplified category
                 const category = getCategory(type);
                 
+                // Count this plant in its category
+                categoryCounts[category] = (categoryCounts[category] || 0) + 1;
+                
+                // Add to total CO2 produced if not converted
+                if (!converted) {
+                    totalCO2Produced += co2Factors[category] || co2Factors['Other'];
+                }
+                
                 // Create marker with appropriate styling
                 const marker = L.circleMarker([plant.lat, plant.lng], {
                     color: 'white',
@@ -157,13 +216,14 @@ function loadYear(year) {
                     fillOpacity: 0.85
                 }).addTo(map);
                 
-                // Add popup with plant info
+                // Add popup with plant info including CO2 impact
                 marker.bindPopup(`
                     <strong>${plant.name}</strong><br>
                     Location: ${plant.state}<br>
                     Type: ${type || 'Unknown'}<br>
                     Category: ${category}<br>
                     Status: ${converted ? 'Converted to Clean Energy' : 'Original Power Source'}<br>
+                    CO2 Impact: ${formatNumber(co2Factors[category] || co2Factors['Other'])} tons/year<br>
                     Coordinates: ${safeFixed(plant.lat)}, ${safeFixed(plant.lng)}
                 `);
                 
@@ -173,17 +233,29 @@ function loadYear(year) {
                         convertedPlants[id] = true;
                         marker.setStyle({ fillColor: plantTypeColors['Converted'] });
                         
-                        // Adjust CO2 savings based on plant type
-                        let co2Factor;
-                        switch(category) {
-                            case 'Coal': co2Factor = 2_000_000; break;
-                            case 'Natural Gas': co2Factor = 1_000_000; break;
-                            case 'Oil': co2Factor = 1_500_000; break;
-                            default: co2Factor = 500_000;
-                        }
+                        // Subtract this plant's emissions from the total produced
+                        // when it gets converted to clean energy
+                        totalCO2Produced -= co2Factors[category] || co2Factors['Other'];
                         
-                        totalCO2Saved += co2Factor;
-                        co2Display.textContent = `Total CO2 Saved: ${totalCO2Saved.toLocaleString()} tons`;
+                        // Add CO2 savings based on plant type
+                        totalCO2Saved += co2Factors[category] || co2Factors['Other'];
+                        
+                        // Update the marker popup to show converted status
+                        marker.setPopupContent(`
+                            <strong>${plant.name}</strong><br>
+                            Location: ${plant.state}<br>
+                            Type: ${type || 'Unknown'}<br>
+                            Category: ${category}<br>
+                            Status: Converted to Clean Energy<br>
+                            CO2 Saved: ${formatNumber(co2Factors[category] || co2Factors['Other'])} tons/year<br>
+                            Coordinates: ${safeFixed(plant.lat)}, ${safeFixed(plant.lng)}
+                        `);
+                        
+                        // Update CO2 summary
+                        updateCO2Summary();
+                        
+                        // Update the legend (to show the converted count)
+                        updateLegend(categoryCounts);
                     }
                 });
                 
@@ -191,23 +263,12 @@ function loadYear(year) {
                 markers.push(marker);
             });
             
-            // Count plants by category for the legend
-            const categoryCounts = {};
-            Object.keys(plantTypeColors).forEach(category => {
-                categoryCounts[category] = 0;
-            });
-            
-            markers.forEach(marker => {
-                const popupContent = marker._popup.getContent();
-                const categoryMatch = popupContent.match(/Category: (.*?)<br>/);
-                if (categoryMatch && categoryMatch[1]) {
-                    const category = categoryMatch[1];
-                    categoryCounts[category] = (categoryCounts[category] || 0) + 1;
-                }
-            });
-            
             console.log(`Added ${markers.length} markers to the map`);
             console.log("Plants by category:", categoryCounts);
+            console.log("Total CO2 produced:", totalCO2Produced);
+            
+            // Update the CO2 display
+            updateCO2Summary();
             
             // Update the legend with counts
             updateLegend(categoryCounts);
@@ -356,11 +417,15 @@ function updateLegend(categoryCounts) {
         
         div.innerHTML += "<strong>Plant Types</strong><br>";
         
-        // Add entries for each plant type with counts
+        // Add entries for each plant type with counts and CO2 impact
         Object.entries(plantTypeColors).forEach(([category, color]) => {
             if (category !== 'Converted') {
                 const count = categoryCounts[category] || 0;
-                div.innerHTML += `<i style="background:${color}"></i>${category} (${count})<br>`;
+                const co2PerPlant = co2Factors[category] || co2Factors['Other'];
+                div.innerHTML += `
+                    <i style="background:${color}"></i>
+                    ${category} (${count}) - ${formatNumber(co2PerPlant)} tons/year per plant<br>
+                `;
             }
         });
         
