@@ -83,12 +83,12 @@ function loadYear(year) {
                 const converted = convertedPlants[id] || false;
                 const type = plant.type;
                 
-                // Create marker with appropriate styling
+                // Create marker with appropriate styling - much larger size
                 const marker = L.circleMarker([plant.lat, plant.lng], {
                     color: 'white',
-                    weight: 1,
+                    weight: 2,
                     fillColor: getColor(type, converted),
-                    radius: 7,
+                    radius: 20,  // Much larger radius
                     fillOpacity: 0.85
                 }).addTo(map); // Add directly to map
                 
