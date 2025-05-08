@@ -16,6 +16,11 @@ let markers = [];
 let totalCO2Saved = 0;
 let totalCO2Produced = 0;
 
+// Track CO2 data by year for cumulative calculations
+let yearlyData = {};
+let currentYear = 2023;
+let previousYears = [];
+
 // Get DOM elements
 const yearSlider = document.getElementById("yearRange");
 const yearLabel = document.getElementById("yearLabel");
@@ -502,6 +507,54 @@ function createJSONFiles() {
         }
     });
 }
+
+// Function to format large numbers with commas and units
+function formatNumber(number) {
+    if (number >= 1_000_000_000) {
+        return (number / 1_000_000_000).toFixed(2) + ' billion';
+    } else if (number >= 1_000_000) {
+        return (number / 1_000_000).toFixed(2) + ' million';
+    } else {
+        return number.toLocaleString();
+    }
+}
+
+// Function to update CO2 summary displays showing cumulative totals
+function updateCO2Summary() {
+    // Calculate cumulative CO2 produced and saved
+    let cumulativeCO2Produced = totalCO2Produced;
+    let cumulativeCO2Saved = totalCO2Saved;
+    
+    // Add CO2 from all previous years that have been visited
+    previousYears.forEach(prevYear => {
+        if (yearlyData[prevYear]) {
+            cumulativeCO2Produced += yearlyData[prevYear].produced;
+            cumulativeCO2Saved += yearlyData[prevYear].saved;
+        }
+    });
+    
+    // Update the CO2 saved display with cumulative values
+    const co2Element = document.getElementById("co2");
+    co2Element.innerHTML = `
+        <div>Cumulative CO2 Saved: ${formatNumber(cumulativeCO2Saved)} tons</div>
+        <div>Cumulative CO2 Produced: ${formatNumber(cumulativeCO2Produced)} tons</div>
+        <div>Net CO2 Impact: ${formatNumber(cumulativeCO2Produced - cumulativeCO2Saved)} tons</div>
+        <div class="year-info">Year ${currentYear}: Produced ${formatNumber(totalCO2Produced)} - Saved ${formatNumber(totalCO2Saved)}</div>
+    `;
+    
+    // Add color coding based on net impact
+    const netImpact = cumulativeCO2Produced - cumulativeCO2Saved;
+    
+    if (netImpact <= 0) {
+        co2Element.style.backgroundColor = '#c8e6c9'; // Light green for positive impact
+    } else if (netImpact < cumulativeCO2Produced * 0.5) {
+        co2Element.style.backgroundColor = '#fff9c4'; // Light yellow for moderate impact
+    } else {
+        co2Element.style.backgroundColor = '#ffcdd2'; // Light red for high impact
+    }
+}
+
+
 
 // Run file check on startup
 createJSONFiles();

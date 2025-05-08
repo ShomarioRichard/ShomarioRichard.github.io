@@ -55,6 +55,14 @@ body {
    line-height: 1.5;
    }
    
+   #co2 .year-info {
+   font-size: 14px;
+   margin-top: 5px;
+   padding-top: 5px;
+   border-top: 1px dashed #999;
+   color: #666;
+   }
+   
    /* Legend styling */
    .legend {
    background: white;
