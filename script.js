@@ -26,22 +26,8 @@ const plantTypeColors = {
     'Hydro': 'blue',
     'Wind': 'lightgreen',
     'Solar': 'yellow',
-    'Biomass': 'brown',
-    'Geothermal': 'red',
     'Other': 'gray',
     'Converted': 'green'
-};
-
-// Plant type distribution (approximate percentages for the US)
-const plantTypeDistribution = {
-    'Natural Gas': 43,
-    'Coal': 19,
-    'Nuclear': 8,
-    'Hydro': 7,
-    'Wind': 10,
-    'Solar': 6,
-    'Biomass': 5,
-    'Geothermal': 2
 };
 
 // Function to get color based on plant type and conversion status
@@ -56,196 +42,171 @@ function clearMarkers() {
     markers = [];
 }
 
-// Function to generate a realistic dataset of power plants
-function generatePowerPlants(year, count = 3000) {
-    // US bounds for random generation
-    const bounds = {
-        north: 49.3457868, // northern border
-        south: 24.7433195, // southern tip of Florida
-        east: -66.9513812, // eastern coast
-        west: -124.7844079 // western coast
-    };
-    
-    // Population centers to cluster around
-    const populationCenters = [
-        {name: "Northeast", lat: 40.7128, lng: -74.0060, radius: 300, weight: 0.2},
-        {name: "Midwest", lat: 41.8781, lng: -87.6298, radius: 400, weight: 0.15},
-        {name: "South", lat: 32.7767, lng: -96.7970, radius: 400, weight: 0.25},
-        {name: "West Coast", lat: 37.7749, lng: -122.4194, radius: 350, weight: 0.15},
-        {name: "Southwest", lat: 33.4484, lng: -112.0740, radius: 300, weight: 0.1},
-        {name: "Northwest", lat: 47.6062, lng: -122.3321, radius: 250, weight: 0.05},
-        {name: "Southeast", lat: 33.7490, lng: -84.3880, radius: 300, weight: 0.1}
-    ];
-    
-    const plants = [];
-    
-    // Helper function to get a random point clustered around population centers
-    function getRandomLocation() {
-        // Decide if we're placing near a population center or randomly
-        const usePopCenter = Math.random() < 0.8; // 80% of plants near population centers
-        
-        if (usePopCenter) {
-            // Choose a random population center based on weight
-            let rand = Math.random();
-            let sum = 0;
-            let chosenCenter;
-            
-            for (const center of populationCenters) {
-                sum += center.weight;
-                if (rand < sum) {
-                    chosenCenter = center;
-                    break;
-                }
-            }
-            
-            // Random angle and adjusted distance from center
-            const angle = Math.random() * 2 * Math.PI;
-            const distance = Math.random() * chosenCenter.radius;
-            
-            // Calculate offset (rough approximation)
-            const latOffset = distance * Math.cos(angle) * 0.01;
-            const lngOffset = distance * Math.sin(angle) * 0.01;
-            
-            return {
-                lat: chosenCenter.lat + latOffset,
-                lng: chosenCenter.lng + lngOffset
-            };
-        } else {
-            // Completely random location within US bounds
-            return {
-                lat: bounds.south + Math.random() * (bounds.north - bounds.south),
-                lng: bounds.west + Math.random() * (bounds.east - bounds.west)
-            };
-        }
-    }
-    
-    // Generate plants
-    for (let i = 0; i < count; i++) {
-        // Choose plant type based on distribution
-        let rand = Math.random() * 100;
-        let sum = 0;
-        let chosenType;
-        
-        for (const [type, percentage] of Object.entries(plantTypeDistribution)) {
-            sum += percentage;
-            if (rand < sum) {
-                chosenType = type;
-                break;
-            }
-        }
-        
-        // Get random location
-        const location = getRandomLocation();
-        
-        // Create plant
-        plants.push({
-            id: i + 1,
-            name: `${chosenType} Plant ${i + 1}`,
-            type: chosenType,
-            lat: location.lat,
-            lng: location.lng,
-            year_built: Math.floor(1950 + Math.random() * (year - 1950))
-        });
-    }
-    
-    // Add historical trend - fewer renewables in past years
-    if (year < 2023) {
-        // Adjust plant types based on year
-        plants.forEach(plant => {
-            // The further back in time, the more likely renewable plants are to be converted to fossil fuels
-            const yearFactor = (2023 - year) / 10; // 0.0 to ~1.0
-            
-            if ((plant.type === 'Wind' || plant.type === 'Solar') && Math.random() < yearFactor * 0.8) {
-                plant.type = Math.random() < 0.7 ? 'Coal' : 'Natural Gas';
-                plant.name = `${plant.type} Plant ${plant.id}`;
-            }
-        });
-    }
-    
-    return plants;
-}
-
 // Function to load plant data for a specific year
 function loadYear(year) {
     clearMarkers();
     yearLabel.textContent = year;
     
-    // Reset CO2 counter when changing years but maintain converted plants
+    // Reset CO2 counter when changing years if no plants have been converted
     if (!Object.keys(convertedPlants).length) {
         totalCO2Saved = 0;
     }
     
     co2Display.textContent = `Total CO2 Saved: ${totalCO2Saved.toLocaleString()} tons`;
     
-    // Generate a large dataset of plants
-    const generatedPlants = generatePowerPlants(year);
+    // Log the file we're trying to load
+    console.log(`Attempting to load: plants_${year}.json`);
     
-    // Sort plants by type for better organization
-    const sortedPlants = generatedPlants.sort((a, b) => a.type.localeCompare(b.type));
-    
-    // For performance with large datasets, consider clustering
-    const plantsByType = {};
-    
-    // Group plants by type for potential clustering
-    sortedPlants.forEach(plant => {
-        if (!plantsByType[plant.type]) {
-            plantsByType[plant.type] = [];
-        }
-        plantsByType[plant.type].push(plant);
-    });
-    
-    // Process all plant types
-    Object.entries(plantsByType).forEach(([type, plants]) => {
-        // Add individual plants to the map
-        plants.forEach(plant => {
-            const id = plant.id;
-            const converted = convertedPlants[id] || false;
+    // Try to fetch the actual data
+    fetch(`plants_${year}.json`)
+        .then(res => {
+            if (!res.ok) {
+                throw new Error(`Failed to fetch plants_${year}.json: ${res.status} ${res.statusText}`);
+            }
+            console.log(`Successfully fetched plants_${year}.json`);
+            return res.json();
+        })
+        .then(data => {
+            console.log(`Loaded ${data.length} plants from JSON file`);
             
-            // Create marker with appropriate styling
-            const marker = L.circleMarker([plant.lat, plant.lng], {
-                color: 'white',
-                weight: 2,
-                fillColor: getColor(type, converted),
-                radius: 15,  // Large radius but not too large when we have thousands of markers
-                fillOpacity: 0.85
-            }).addTo(map);
+            // Sort plants by type
+            const sortedPlants = data.sort((a, b) => a.type.localeCompare(b.type));
             
-            // Add popup with plant info
-            marker.bindPopup(`
-                <strong>${plant.name}</strong><br>
-                Type: ${plant.type}<br>
-                Built: ${plant.year_built}<br>
-                Status: ${converted ? 'Converted to Clean Energy' : 'Original Power Source'}<br>
-                Location: ${plant.lat.toFixed(4)}, ${plant.lng.toFixed(4)}
-            `);
+            // Count plants by type for debugging
+            const typeCounts = {};
+            sortedPlants.forEach(plant => {
+                typeCounts[plant.type] = (typeCounts[plant.type] || 0) + 1;
+            });
+            console.log("Plants by type:", typeCounts);
             
-            // Add click event for conversion
-            marker.on('click', () => {
-                if (!convertedPlants[id]) {
-                    convertedPlants[id] = true;
-                    marker.setStyle({ fillColor: plantTypeColors['Converted'] });
-                    
-                    // Adjust CO2 savings based on plant type
-                    let co2Factor;
-                    switch(type) {
-                        case 'Coal': co2Factor = 2_000_000; break;
-                        case 'Natural Gas': co2Factor = 1_000_000; break;
-                        default: co2Factor = 500_000;
-                    }
-                    
-                    totalCO2Saved += co2Factor;
-                    co2Display.textContent = `Total CO2 Saved: ${totalCO2Saved.toLocaleString()} tons`;
+            // Process and display each plant
+            sortedPlants.forEach(plant => {
+                const id = plant.id;
+                const converted = convertedPlants[id] || false;
+                const type = plant.type;
+                
+                // Validate coordinates
+                if (!plant.lat || !plant.lng) {
+                    console.warn(`Plant ${plant.id} (${plant.name}) is missing coordinates`);
+                    return; // Skip this plant
                 }
+                
+                // Create marker with appropriate styling - much larger size
+                const marker = L.circleMarker([plant.lat, plant.lng], {
+                    color: 'white',
+                    weight: 2,
+                    fillColor: getColor(type, converted),
+                    radius: 20,  // Much larger radius
+                    fillOpacity: 0.85
+                }).addTo(map); // Add directly to map
+                
+                // Add popup with plant info
+                marker.bindPopup(`
+                    <strong>${plant.name}</strong><br>
+                    Type: ${plant.type}<br>
+                    Status: ${converted ? 'Converted to Clean Energy' : 'Original Power Source'}<br>
+                    Location: ${plant.lat.toFixed(4)}, ${plant.lng.toFixed(4)}
+                `);
+                
+                // Add click event for conversion
+                marker.on('click', () => {
+                    if (!convertedPlants[id]) {
+                        convertedPlants[id] = true;
+                        marker.setStyle({ fillColor: plantTypeColors['Converted'] });
+                        
+                        // Adjust CO2 savings based on plant type
+                        let co2Factor;
+                        switch(type) {
+                            case 'Coal': co2Factor = 2_000_000; break;
+                            case 'Natural Gas': co2Factor = 1_000_000; break;
+                            default: co2Factor = 500_000;
+                        }
+                        
+                        totalCO2Saved += co2Factor;
+                        co2Display.textContent = `Total CO2 Saved: ${totalCO2Saved.toLocaleString()} tons`;
+                    }
+                });
+                
+                // Store marker reference
+                markers.push(marker);
             });
             
-            // Store marker reference
-            markers.push(marker);
+            console.log(`Added ${markers.length} markers to the map`);
+        })
+        .catch(error => {
+            console.error("Error loading plant data:", error);
+            
+            // Alert the user about the error
+            alert(`Error loading plant data for year ${year}. Please check your file structure and try again. 
+            
+The application expects a file named "plants_${year}.json" with the following structure:
+[
+  { 
+    "id": 1, 
+    "name": "Plant Name", 
+    "type": "Coal", 
+    "lat": 41.5, 
+    "lng": -81.7 
+  },
+  ...
+]`);
         });
-    });
-    
-    // Log how many plants were created
-    console.log(`Generated ${markers.length} power plant markers for year ${year}`);
 }
+
+// Check if JSON files exist and provide guidance
+function checkJsonFiles() {
+    // Check if the first JSON file exists
+    fetch('plants_2023.json')
+        .then(res => {
+            if (!res.ok) {
+                throw new Error('JSON file not found');
+            }
+            return res.json();
+        })
+        .then(data => {
+            console.log(`Found plants_2023.json with ${data.length} plants.`);
+        })
+        .catch(error => {
+            console.error('Error checking JSON files:', error);
+            
+            // Show more detailed error message
+            const errorMsg = document.createElement('div');
+            errorMsg.style.backgroundColor = '#ffecec';
+            errorMsg.style.color = '#f44336';
+            errorMsg.style.padding = '15px';
+            errorMsg.style.margin = '15px';
+            errorMsg.style.borderRadius = '5px';
+            errorMsg.style.border = '1px solid #f44336';
+            
+            errorMsg.innerHTML = `
+                <h3>Data Files Not Found</h3>
+                <p>The application couldn't find the required data files. 
+                Please make sure you have the following files in the same directory as your HTML file:</p>
+                <ul>
+                    <li>plants_2014.json</li>
+                    <li>plants_2015.json</li>
+                    <li>...</li>
+                    <li>plants_2023.json</li>
+                </ul>
+                <p>Each file should contain an array of power plant objects with the following structure:</p>
+                <pre>[
+  { 
+    "id": 1, 
+    "name": "Plant Name", 
+    "type": "Coal", 
+    "lat": 41.5, 
+    "lng": -81.7 
+  },
+  ...
+]</pre>
+            `;
+            
+            document.body.insertBefore(errorMsg, document.getElementById('map'));
+        });
+}
+
+// Run initial checks
+checkJsonFiles();
 
 // Initialize map with starting year
 loadYear(parseInt(yearSlider.value));
@@ -263,10 +224,11 @@ legend.onAdd = function () {
     
     div.innerHTML += "<strong>Plant Types</strong><br>";
     
-    // Add entries for each plant type (except 'Other' and 'Converted')
-    Object.entries(plantTypeDistribution).forEach(([type, percentage]) => {
-        const color = plantTypeColors[type];
-        div.innerHTML += `<i style="background:${color}"></i>${type} (${percentage}%)<br>`;
+    // Add entries for each plant type
+    Object.entries(plantTypeColors).forEach(([type, color]) => {
+        if (type !== 'Converted') {
+            div.innerHTML += `<i style="background:${color}"></i>${type}<br>`;
+        }
     });
     
     // Add converted plant entry at the end
@@ -275,6 +237,3 @@ legend.onAdd = function () {
     return div;
 };
 legend.addTo(map);
-
-// Improve performance by disabling world wrap
-map.worldCopyJump = false;
