@@ -18,7 +18,7 @@ let totalCO2Produced = 0;
 
 // Track yearly CO2 data for chronological cumulative calculations
 let yearlyData = {};
-let currentYear = 2023;
+let currentYear = null;   
 let allYears = [];
 for (let year = 2015; year <= 2023; year++) {
     allYears.push(year);
@@ -156,9 +156,10 @@ function updateCO2Summary() {
 // Function to load plant data for a specific year
 function loadYear(year) {
     clearMarkers();
+    currentYear = year;              
     yearLabel.textContent = year;
     
-    // Reset CO2 counter when changing years
+    // Reset CO2 counter when changing years if no plants have been converted
     if (Object.keys(convertedPlants).length === 0) {
         totalCO2Saved = 0;
     }
@@ -275,7 +276,13 @@ function loadYear(year) {
             console.log("Plants by category:", categoryCounts);
             console.log("Total CO2 produced:", totalCO2Produced);
             
-            // Update the CO2 display
+            // Record this year’s totals so we can build a running sum
+            yearlyData[year] = {
+              produced: totalCO2Produced,
+              saved: totalCO2Saved
+            };
+
+            // Now update the display to show the truly cumulative numbers
             updateCO2Summary();
             
             // Update the legend with counts
@@ -563,18 +570,6 @@ function updateCO2Summary() {
         co2Element.style.backgroundColor = '#ffcdd2'; // Light red for high impact
     }
 }
-
-// CO2 emission factors per plant type (tons per year)
-const co2Factors = {
-    'Coal': 2_000_000,       // High emissions
-    'Natural Gas': 1_000_000, // Medium emissions 
-    'Oil': 1_500_000,         // Medium-high emissions
-    'Nuclear': 50_000,        // Very low (for plant operations, not the actual nuclear process)
-    'Hydro': 30_000,          // Very low (for infrastructure maintenance)
-    'Wind': 20_000,           // Minimal (for maintenance)
-    'Solar': 20_000,          // Minimal (for maintenance)
-    'Other': 500_000          // Moderate default
-};
 
 // Run file check on startup
 createJSONFiles();
