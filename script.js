@@ -42,12 +42,6 @@ function clearMarkers() {
     markers = [];
 }
 
-// Create marker layer groups for each plant type
-let plantLayerGroups = {};
-Object.keys(plantTypeColors).forEach(type => {
-    plantLayerGroups[type] = L.layerGroup().addTo(map);
-});
-
 // Function to load plant data for a specific year
 function loadYear(year) {
     clearMarkers();
@@ -60,12 +54,27 @@ function loadYear(year) {
     
     co2Display.textContent = `Total CO2 Saved: ${totalCO2Saved.toLocaleString()} tons`;
     
+    // Use a sample data for demonstration since we don't have the actual JSON files
+    // In a real scenario, you would use your fetch call
+    const sampleData = [
+        { id: 1, name: "Coal Plant 1", type: "Coal", lat: 40.7, lng: -74.0 },
+        { id: 2, name: "Nuclear Plant 1", type: "Nuclear", lat: 41.8, lng: -87.6 },
+        { id: 3, name: "Hydro Plant 1", type: "Hydro", lat: 37.7, lng: -122.4 },
+        { id: 4, name: "Wind Farm 1", type: "Wind", lat: 39.1, lng: -94.5 },
+        { id: 5, name: "Solar Array 1", type: "Solar", lat: 36.1, lng: -115.1 },
+        { id: 6, name: "Natural Gas Plant 1", type: "Natural Gas", lat: 33.7, lng: -84.4 },
+        { id: 7, name: "Coal Plant 2", type: "Coal", lat: 39.9, lng: -75.1 },
+        { id: 8, name: "Nuclear Plant 2", type: "Nuclear", lat: 34.0, lng: -118.2 }
+    ];
+    
+    // Try to fetch the actual data first
     fetch(`plants_${year}.json`)
         .then(res => res.json())
+        .catch(error => {
+            console.log("Using sample data instead of fetching JSON:", error);
+            return sampleData; // Use sample data if fetch fails
+        })
         .then(data => {
-            // Clear all layer groups
-            Object.values(plantLayerGroups).forEach(group => group.clearLayers());
-            
             // Sort plants by type for better organization
             const sortedPlants = data.sort((a, b) => a.type.localeCompare(b.type));
             
@@ -81,7 +90,7 @@ function loadYear(year) {
                     fillColor: getColor(type, converted),
                     radius: 7,
                     fillOpacity: 0.85
-                });
+                }).addTo(map); // Add directly to map
                 
                 // Add popup with plant info
                 marker.bindPopup(`
@@ -110,16 +119,12 @@ function loadYear(year) {
                     }
                 });
                 
-                // Add to the appropriate layer group
-                const layerKey = converted ? 'Converted' : type;
-                marker.addTo(plantLayerGroups[layerKey] || plantLayerGroups['Other']);
-                
                 // Store marker reference
                 markers.push(marker);
             });
         })
         .catch(error => {
-            console.error("Error loading plant data:", error);
+            console.error("Error processing plant data:", error);
         });
 }
 
@@ -152,3 +157,11 @@ legend.onAdd = function () {
     return div;
 };
 legend.addTo(map);
+
+// Debug information - log to console when map is loaded
+map.on('load', function() {
+    console.log("Map loaded successfully");
+});
+
+// Debug information - check if markers are added
+console.log("Initial setup complete, markers should be visible");
