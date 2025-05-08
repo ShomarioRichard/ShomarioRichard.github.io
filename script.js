@@ -1,5 +1,5 @@
 // Initialize the map centered on the US
-let map = L.map('map').setView([39.5, -98.35], 5);
+let map = L.map('map').setView([39.5, -98.35], 4);
 
 // Add the OpenStreetMap tile layer
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -18,22 +18,64 @@ const co2Display = document.getElementById("co2");
 // Track which plants are "converted" by their ID
 let convertedPlants = {};
 
+// Define categories for simplifying the many power plant types
+const typeCategories = {
+    'Coal': ['Conventional Steam Coal'],
+    'Natural Gas': ['Natural Gas Fired Combined Cycle', 'Natural Gas Fired Combustion Turbine', 'Natural Gas Steam Turbine'],
+    'Nuclear': ['Nuclear'],
+    'Hydro': ['Conventional Hydroelectric'],
+    'Oil': ['Petroleum Liquids'],
+    'Wind': ['Wind'],
+    'Solar': ['Solar Photovoltaic', 'Solar Thermal'],
+    'Other': [] // Anything else falls here
+};
+
+// Reverse mapping to categorize plant types
+const typeToCategory = {};
+Object.entries(typeCategories).forEach(([category, types]) => {
+    types.forEach(type => {
+        typeToCategory[type] = category;
+    });
+});
+
 // Plant type colors
 const plantTypeColors = {
-    'Coal': 'black',
-    'Natural Gas': 'orange',
-    'Nuclear': 'purple',
-    'Hydro': 'blue',
-    'Wind': 'lightgreen',
-    'Solar': 'yellow',
-    'Other': 'gray',
-    'Converted': 'green'
+    'Coal': '#000000', // Black
+    'Natural Gas': '#FFA500', // Orange
+    'Nuclear': '#800080', // Purple
+    'Hydro': '#0000FF', // Blue
+    'Oil': '#8B4513', // Brown
+    'Wind': '#90EE90', // Light Green
+    'Solar': '#FFFF00', // Yellow
+    'Other': '#808080', // Gray
+    'Converted': '#008000' // Green
 };
+
+// Function to get category from plant type
+function getCategory(type) {
+    if (!type || type === "NaN" || type === "null") return 'Other';
+    
+    // Check if type is directly in our mapping
+    if (typeToCategory[type]) {
+        return typeToCategory[type];
+    }
+    
+    // Try to match by substring
+    for (const [category, types] of Object.entries(typeCategories)) {
+        if (type.toLowerCase().includes(category.toLowerCase())) {
+            return category;
+        }
+    }
+    
+    return 'Other';
+}
 
 // Function to get color based on plant type and conversion status
 function getColor(type, converted) {
     if (converted) return plantTypeColors['Converted'];
-    return plantTypeColors[type] || plantTypeColors['Other'];
+    
+    const category = getCategory(type);
+    return plantTypeColors[category] || plantTypeColors['Other'];
 }
 
 // Function to clear all markers from the map
@@ -69,43 +111,39 @@ function loadYear(year) {
         .then(data => {
             console.log(`Loaded ${data.length} plants from JSON file`);
             
-            // Sort plants by type
-            const sortedPlants = data.sort((a, b) => a.type.localeCompare(b.type));
-            
-            // Count plants by type for debugging
-            const typeCounts = {};
-            sortedPlants.forEach(plant => {
-                typeCounts[plant.type] = (typeCounts[plant.type] || 0) + 1;
-            });
-            console.log("Plants by type:", typeCounts);
-            
             // Process and display each plant
-            sortedPlants.forEach(plant => {
+            data.forEach(plant => {
                 const id = plant.id;
                 const converted = convertedPlants[id] || false;
                 const type = plant.type;
                 
-                // Validate coordinates
-                if (!plant.lat || !plant.lng) {
-                    console.warn(`Plant ${plant.id} (${plant.name}) is missing coordinates`);
-                    return; // Skip this plant
+                // Skip plants with invalid coordinates
+                if (!plant.lat || !plant.lng || 
+                    isNaN(plant.lat) || isNaN(plant.lng)) {
+                    console.warn(`Plant ${plant.id} (${plant.name}) has invalid coordinates`);
+                    return;
                 }
                 
-                // Create marker with appropriate styling - much larger size
+                // Get the simplified category
+                const category = getCategory(type);
+                
+                // Create marker with appropriate styling
                 const marker = L.circleMarker([plant.lat, plant.lng], {
                     color: 'white',
                     weight: 2,
                     fillColor: getColor(type, converted),
-                    radius: 20,  // Much larger radius
+                    radius: 20,
                     fillOpacity: 0.85
-                }).addTo(map); // Add directly to map
+                }).addTo(map);
                 
                 // Add popup with plant info
                 marker.bindPopup(`
                     <strong>${plant.name}</strong><br>
-                    Type: ${plant.type}<br>
+                    Location: ${plant.state}<br>
+                    Type: ${type || 'Unknown'}<br>
+                    Category: ${category}<br>
                     Status: ${converted ? 'Converted to Clean Energy' : 'Original Power Source'}<br>
-                    Location: ${plant.lat.toFixed(4)}, ${plant.lng.toFixed(4)}
+                    Coordinates: ${plant.lat.toFixed(4)}, ${plant.lng.toFixed(4)}
                 `);
                 
                 // Add click event for conversion
@@ -116,9 +154,10 @@ function loadYear(year) {
                         
                         // Adjust CO2 savings based on plant type
                         let co2Factor;
-                        switch(type) {
+                        switch(category) {
                             case 'Coal': co2Factor = 2_000_000; break;
                             case 'Natural Gas': co2Factor = 1_000_000; break;
+                            case 'Oil': co2Factor = 1_500_000; break;
                             default: co2Factor = 500_000;
                         }
                         
@@ -131,82 +170,85 @@ function loadYear(year) {
                 markers.push(marker);
             });
             
+            // Count plants by category for the legend
+            const categoryCounts = {};
+            Object.keys(plantTypeColors).forEach(category => {
+                categoryCounts[category] = 0;
+            });
+            
+            markers.forEach(marker => {
+                const popupContent = marker._popup.getContent();
+                const categoryMatch = popupContent.match(/Category: (.*?)<br>/);
+                if (categoryMatch && categoryMatch[1]) {
+                    const category = categoryMatch[1];
+                    categoryCounts[category] = (categoryCounts[category] || 0) + 1;
+                }
+            });
+            
             console.log(`Added ${markers.length} markers to the map`);
+            console.log("Plants by category:", categoryCounts);
+            
+            // Update the legend with counts
+            updateLegend(categoryCounts);
         })
         .catch(error => {
             console.error("Error loading plant data:", error);
             
-            // Alert the user about the error
-            alert(`Error loading plant data for year ${year}. Please check your file structure and try again. 
+            // Alert the user about the error in a more user-friendly way
+            const errorContainer = document.createElement('div');
+            errorContainer.style.backgroundColor = '#ffecec';
+            errorContainer.style.color = '#f44336';
+            errorContainer.style.padding = '15px';
+            errorContainer.style.margin = '15px';
+            errorContainer.style.borderRadius = '5px';
+            errorContainer.style.border = '1px solid #f44336';
             
-The application expects a file named "plants_${year}.json" with the following structure:
-[
-  { 
-    "id": 1, 
-    "name": "Plant Name", 
-    "type": "Coal", 
-    "lat": 41.5, 
-    "lng": -81.7 
-  },
-  ...
-]`);
-        });
-}
-
-// Check if JSON files exist and provide guidance
-function checkJsonFiles() {
-    // Check if the first JSON file exists
-    fetch('plants_2023.json')
-        .then(res => {
-            if (!res.ok) {
-                throw new Error('JSON file not found');
-            }
-            return res.json();
-        })
-        .then(data => {
-            console.log(`Found plants_2023.json with ${data.length} plants.`);
-        })
-        .catch(error => {
-            console.error('Error checking JSON files:', error);
-            
-            // Show more detailed error message
-            const errorMsg = document.createElement('div');
-            errorMsg.style.backgroundColor = '#ffecec';
-            errorMsg.style.color = '#f44336';
-            errorMsg.style.padding = '15px';
-            errorMsg.style.margin = '15px';
-            errorMsg.style.borderRadius = '5px';
-            errorMsg.style.border = '1px solid #f44336';
-            
-            errorMsg.innerHTML = `
-                <h3>Data Files Not Found</h3>
-                <p>The application couldn't find the required data files. 
-                Please make sure you have the following files in the same directory as your HTML file:</p>
-                <ul>
-                    <li>plants_2014.json</li>
-                    <li>plants_2015.json</li>
-                    <li>...</li>
-                    <li>plants_2023.json</li>
-                </ul>
-                <p>Each file should contain an array of power plant objects with the following structure:</p>
-                <pre>[
-  { 
-    "id": 1, 
-    "name": "Plant Name", 
-    "type": "Coal", 
-    "lat": 41.5, 
-    "lng": -81.7 
-  },
-  ...
-]</pre>
+            errorContainer.innerHTML = `
+                <h3>Error Loading Data</h3>
+                <p>Could not load power plant data for year ${year}.</p>
+                <p>Error details: ${error.message}</p>
+                <p>Please check that the file "plants_${year}.json" exists and is properly formatted.</p>
             `;
             
-            document.body.insertBefore(errorMsg, document.getElementById('map'));
+            // Only add error message if not already displayed
+            if (!document.querySelector('.error-message')) {
+                errorContainer.className = 'error-message';
+                document.body.insertBefore(errorContainer, document.getElementById('map'));
+            }
         });
 }
 
-// Run initial checks
-checkJsonFiles();
+// Function to update the legend with plant counts
+function updateLegend(categoryCounts) {
+    // Remove existing legend
+    const existingLegend = document.querySelector('.legend');
+    if (existingLegend) {
+        existingLegend.remove();
+    }
+    
+    // Create new legend
+    const legend = L.control({ position: "bottomright" });
+    legend.onAdd = function () {
+        const div = L.DomUtil.create("div", "legend");
+        
+        div.innerHTML += "<strong>Plant Types</strong><br>";
+        
+        // Add entries for each plant type
+        Object.entries(plantTypeColors).forEach(([category, color]) => {
+            if (category !== 'Converted') {
+                const count = categoryCounts[category] || 0;
+                div.innerHTML += `<i style="background:${color}"></i>${category} (${count})<br>`;
+            }
+        });
+        
+        // Add converted plant entry at the end
+        const convertedCount = Object.keys(convertedPlants).length;
+        div.innerHTML += `<i style="background:${plantTypeColors['Converted']}"></i>Converted (${convertedCount})<br>`;
+        
+        return div;
+    };
+    legend.addTo(map);
+}
 
 // Initialize map with starting year
 loadYear(parseInt(yearSlider.value));
@@ -216,24 +258,3 @@ yearSlider.addEventListener("input", () => {
     const selectedYear = parseInt(yearSlider.value);
     loadYear(selectedYear);
 });
-
-// Add legend to map
-const legend = L.control({ position: "bottomright" });
-legend.onAdd = function () {
-    const div = L.DomUtil.create("div", "legend");
-    
-    div.innerHTML += "<strong>Plant Types</strong><br>";
-    
-    // Add entries for each plant type
-    Object.entries(plantTypeColors).forEach(([type, color]) => {
-        if (type !== 'Converted') {
-            div.innerHTML += `<i style="background:${color}"></i>${type}<br>`;
-        }
-    });
-    
-    // Add converted plant entry at the end
-    div.innerHTML += "<i style=\"background:green\"></i>Converted Plant<br>";
-    
-    return div;
-};
-legend.addTo(map);
