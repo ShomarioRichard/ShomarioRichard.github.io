@@ -20,7 +20,7 @@ let convertedPlants = {};
 
 // Define categories for simplifying the many power plant types
 const typeCategories = {
-    'Coal': ['Conventional Steam Coal'],
+    'Coal': ['Conventional Steam Coal', 'Coal'],
     'Natural Gas': ['Natural Gas Fired Combined Cycle', 'Natural Gas Fired Combustion Turbine', 'Natural Gas Steam Turbine'],
     'Nuclear': ['Nuclear'],
     'Hydro': ['Conventional Hydroelectric'],
@@ -53,7 +53,8 @@ const plantTypeColors = {
 
 // Function to get category from plant type
 function getCategory(type) {
-    if (!type || type === "NaN" || type === "null") return 'Other';
+    // Handle NaN values from JSON
+    if (!type || type === "NaN" || type === "null" || type === "undefined") return 'Other';
     
     // Check if type is directly in our mapping
     if (typeToCategory[type]) {
@@ -84,35 +85,49 @@ function clearMarkers() {
     markers = [];
 }
 
+// Function to handle NaN values in JSON data
+function handleNaN(data) {
+    return data.map(plant => {
+        if (plant.type === null || plant.type === undefined || plant.type === NaN || plant.type === "NaN") {
+            return { ...plant, type: "Other" };
+        }
+        return plant;
+    });
+}
+
 // Function to load plant data for a specific year
 function loadYear(year) {
     clearMarkers();
     yearLabel.textContent = year;
     
     // Reset CO2 counter when changing years if no plants have been converted
-    if (!Object.keys(convertedPlants).length) {
+    if (Object.keys(convertedPlants).length === 0) {
         totalCO2Saved = 0;
     }
     
     co2Display.textContent = `Total CO2 Saved: ${totalCO2Saved.toLocaleString()} tons`;
     
-    // Log the file we're trying to load
-    console.log(`Attempting to load: plants_${year}.json`);
+    // Create URL for current year's JSON file
+    const jsonUrl = `plants_${year}.json`;
+    console.log(`Attempting to load: ${jsonUrl}`);
     
-    // Try to fetch the actual data
-    fetch(`plants_${year}.json`)
-        .then(res => {
-            if (!res.ok) {
-                throw new Error(`Failed to fetch plants_${year}.json: ${res.status} ${res.statusText}`);
+    // Try to fetch the data for the current year
+    fetch(jsonUrl)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`Failed to fetch ${jsonUrl}: ${response.status} ${response.statusText}`);
             }
-            console.log(`Successfully fetched plants_${year}.json`);
-            return res.json();
+            console.log(`Successfully fetched ${jsonUrl}`);
+            return response.json();
         })
         .then(data => {
-            console.log(`Loaded ${data.length} plants from JSON file`);
+            console.log(`Loaded ${data.length} plants from ${jsonUrl}`);
+            
+            // Handle any NaN values in the data
+            const cleanData = handleNaN(data);
             
             // Process and display each plant
-            data.forEach(plant => {
+            cleanData.forEach(plant => {
                 const id = plant.id;
                 const converted = convertedPlants[id] || false;
                 const type = plant.type;
@@ -190,31 +205,133 @@ function loadYear(year) {
             
             // Update the legend with counts
             updateLegend(categoryCounts);
+            
+            // Remove any error messages if the load was successful
+            const errorMessage = document.querySelector('.error-message');
+            if (errorMessage) {
+                errorMessage.remove();
+            }
         })
         .catch(error => {
-            console.error("Error loading plant data:", error);
+            console.error(`Error loading data from ${jsonUrl}:`, error);
             
-            // Alert the user about the error in a more user-friendly way
-            const errorContainer = document.createElement('div');
-            errorContainer.style.backgroundColor = '#ffecec';
-            errorContainer.style.color = '#f44336';
-            errorContainer.style.padding = '15px';
-            errorContainer.style.margin = '15px';
-            errorContainer.style.borderRadius = '5px';
-            errorContainer.style.border = '1px solid #f44336';
+            // Create and display an error message
+            showErrorMessage(year, error);
             
-            errorContainer.innerHTML = `
-                <h3>Error Loading Data</h3>
-                <p>Could not load power plant data for year ${year}.</p>
-                <p>Error details: ${error.message}</p>
-                <p>Please check that the file "plants_${year}.json" exists and is properly formatted.</p>
-            `;
-            
-            // Only add error message if not already displayed
-            if (!document.querySelector('.error-message')) {
-                errorContainer.className = 'error-message';
-                document.body.insertBefore(errorContainer, document.getElementById('map'));
+            // If we can't load the current year, try to load a different one
+            // Only try this if we haven't already shown markers
+            if (markers.length === 0) {
+                tryAlternativeYears(year);
             }
+        });
+}
+
+// Function to display error messages
+function showErrorMessage(year, error) {
+    // Remove any existing error messages
+    const existingError = document.querySelector('.error-message');
+    if (existingError) {
+        existingError.remove();
+    }
+    
+    // Create error container
+    const errorContainer = document.createElement('div');
+    errorContainer.className = 'error-message';
+    errorContainer.style.backgroundColor = '#ffecec';
+    errorContainer.style.color = '#f44336';
+    errorContainer.style.padding = '15px';
+    errorContainer.style.margin = '15px';
+    errorContainer.style.borderRadius = '5px';
+    errorContainer.style.border = '1px solid #f44336';
+    
+    errorContainer.innerHTML = `
+        <h3>Error Loading Data</h3>
+        <p>Could not load power plant data for year ${year}.</p>
+        <p>Error details: ${error.message}</p>
+        <p>Please make sure you have the following files in the same directory as your HTML file:</p>
+        <ul>
+            <li>plants_2014.json</li>
+            <li>plants_2015.json</li>
+            <li>...</li>
+            <li>plants_2023.json</li>
+        </ul>
+    `;
+    
+    // Insert error message before the map
+    document.body.insertBefore(errorContainer, document.getElementById('map'));
+}
+
+// Function to try alternative years if the current one fails
+function tryAlternativeYears(currentYear) {
+    // Try years from 2014 to 2023 (excluding the current one)
+    console.log(`Trying to find an alternative data file...`);
+    
+    // Create an array of years to try
+    const years = [];
+    for (let year = 2014; year <= 2023; year++) {
+        if (year !== currentYear) {
+            years.push(year);
+        }
+    }
+    
+    // Try each year one by one
+    tryNextYear(years, 0);
+}
+
+// Recursive function to try loading from the next year in the list
+function tryNextYear(years, index) {
+    if (index >= years.length) {
+        console.error("Couldn't load data from any year");
+        return;
+    }
+    
+    const year = years[index];
+    const jsonUrl = `plants_${year}.json`;
+    
+    console.log(`Trying alternative: ${jsonUrl}`);
+    
+    fetch(jsonUrl)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error("Failed to fetch");
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log(`Successfully loaded alternative data from ${jsonUrl}`);
+            
+            // Update the year slider to match the loaded data
+            yearSlider.value = year;
+            
+            // Load the data for this year
+            loadYear(year);
+            
+            // Show a notification that we've loaded a different year
+            const notification = document.createElement('div');
+            notification.style.backgroundColor = '#e8f5e9';
+            notification.style.color = '#2e7d32';
+            notification.style.padding = '10px';
+            notification.style.margin = '10px 0';
+            notification.style.borderRadius = '5px';
+            notification.style.textAlign = 'center';
+            notification.innerHTML = `<strong>Note:</strong> Loaded data for ${year} instead, as the requested year was not available.`;
+            
+            // Remove any existing notifications
+            const existingNotification = document.querySelector('.year-notification');
+            if (existingNotification) {
+                existingNotification.remove();
+            }
+            
+            // Add the class for later reference
+            notification.className = 'year-notification';
+            
+            // Insert notification before controls
+            document.body.insertBefore(notification, document.getElementById('controls'));
+        })
+        .catch(error => {
+            console.error(`Alternative ${jsonUrl} also failed:`, error);
+            // Try the next year
+            tryNextYear(years, index + 1);
         });
 }
 
@@ -233,7 +350,7 @@ function updateLegend(categoryCounts) {
         
         div.innerHTML += "<strong>Plant Types</strong><br>";
         
-        // Add entries for each plant type
+        // Add entries for each plant type with counts
         Object.entries(plantTypeColors).forEach(([category, color]) => {
             if (category !== 'Converted') {
                 const count = categoryCounts[category] || 0;
@@ -249,6 +366,74 @@ function updateLegend(categoryCounts) {
     };
     legend.addTo(map);
 }
+
+// Check if any JSON file exists and create JSON files if needed
+function createJSONFiles() {
+    const jsonNames = [];
+    
+    for (let year = 2014; year <= 2023; year++) {
+        jsonNames.push(`plants_${year}.json`);
+    }
+    
+    Promise.all(jsonNames.map(file => 
+        fetch(file)
+            .then(response => {
+                if (!response.ok) throw new Error(`${file} not found`);
+                return file;
+            })
+            .catch(() => null)
+    ))
+    .then(results => {
+        const missingFiles = results.filter(result => result === null).length;
+        
+        if (missingFiles === jsonNames.length) {
+            // All files are missing, show a message with instructions to fix
+            const message = document.createElement('div');
+            message.style.backgroundColor = '#fff3cd';
+            message.style.color = '#856404';
+            message.style.padding = '15px';
+            message.style.margin = '15px';
+            message.style.borderRadius = '5px';
+            message.style.border = '1px solid #ffeeba';
+            
+            message.innerHTML = `
+                <h3>Missing Data Files</h3>
+                <p>All the required JSON files are missing. The application needs files named:</p>
+                <ul>
+                    ${jsonNames.map(file => `<li>${file}</li>`).join('')}
+                </ul>
+                <p>These files should contain your power plant data.</p>
+                <p>For now, we'll use the current year, but you may see an error.</p>
+            `;
+            
+            document.body.insertBefore(message, document.getElementById('controls'));
+        } else if (missingFiles > 0) {
+            // Some files are missing
+            const foundFiles = results.filter(result => result !== null);
+            console.log(`Found ${foundFiles.length} JSON files: ${foundFiles.join(', ')}`);
+            
+            const missingFileNames = jsonNames.filter(name => !results.includes(name));
+            console.log(`Missing ${missingFiles} JSON files: ${missingFileNames.join(', ')}`);
+            
+            // Show a less prominent warning
+            const warning = document.createElement('div');
+            warning.style.backgroundColor = '#fff3cd';
+            warning.style.color = '#856404';
+            warning.style.padding = '10px';
+            warning.style.margin = '10px 0';
+            warning.style.borderRadius = '5px';
+            warning.style.textAlign = 'center';
+            warning.innerHTML = `<strong>Note:</strong> Some years' data files are missing. The slider might not work for all years.`;
+            
+            document.body.insertBefore(warning, document.getElementById('controls'));
+        } else {
+            console.log("All JSON files found!");
+        }
+    });
+}
+
+// Run file check on startup
+createJSONFiles();
 
 // Initialize map with starting year
 loadYear(parseInt(yearSlider.value));
