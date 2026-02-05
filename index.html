@@ -1,336 +1,171 @@
-:root{
-  --bg:#0b0f14;
-  --panel:#0f1620;
-  --panel2:#101b27;
-  --border:#1e2a3a;
-  --text:#e7edf6;
-  --muted:#94a3b8;
-  --good:#2dd4bf;
-  --warn:#fbbf24;
-  --bad:#fb7185;
-  --accent:#60a5fa;
-  --shadow: 0 10px 30px rgba(0,0,0,.35);
-  --radius: 16px;
-  --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono","Courier New", monospace;
-  --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
-}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Richard Laboratories — Remote Ops Console</title>
+  <link rel="stylesheet" href="richard-laboratories-website/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo">RL</div>
+      <div>
+        <div class="title">Remote Ops Console</div>
+        <div class="subtitle">Richard Laboratories • Live Fleet Telemetry</div>
+      </div>
+    </div>
 
-*{box-sizing:border-box}
-body{
-  margin:0;
-  background: radial-gradient(1200px 800px at 15% 10%, #0f1a2b 0%, var(--bg) 55%);
-  color:var(--text);
-  font-family:var(--sans);
-}
+    <div class="topbarRight">
+      <div class="kpi">
+        <div class="kpiLabel">Fleet OEE</div>
+        <div class="kpiValue" id="kpiOee">—</div>
+      </div>
+      <div class="kpi">
+        <div class="kpiLabel">Scrap</div>
+        <div class="kpiValue" id="kpiScrap">—</div>
+      </div>
+      <div class="kpi">
+        <div class="kpiLabel">Downtime</div>
+        <div class="kpiValue" id="kpiDown">—</div>
+      </div>
+      <button class="btn ghost" id="btnShift">Night Shift: Off</button>
+      <button class="btn ghost" id="btnSimSpeed">Speed: 1x</button>
+    </div>
+  </header>
 
-.topbar{
-  position:sticky; top:0;
-  background: rgba(11,15,20,.85);
-  backdrop-filter: blur(10px);
-  border-bottom:1px solid var(--border);
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  padding:14px 18px;
-  z-index:10;
-}
+  <main class="layout">
+    <section class="panel fleet">
+      <div class="panelHeader">
+        <h2>Fleet Overview</h2>
+        <div class="panelHeaderRight">
+          <input class="input" id="search" placeholder="Search machine, ID, type" />
+          <select class="input select" id="filterStatus">
+            <option value="all">All Status</option>
+            <option value="RUNNING">Running</option>
+            <option value="IDLE">Idle</option>
+            <option value="WAIT_MAT">Waiting Mat</option>
+            <option value="ALARM">Alarm</option>
+            <option value="OFFLINE">Offline</option>
+          </select>
+        </div>
+      </div>
+      <div class="fleetGrid" id="fleetGrid"></div>
+    </section>
 
-.brand{display:flex; gap:12px; align-items:center;}
-.logo{
-  width:42px; height:42px; border-radius:12px;
-  display:grid; place-items:center;
-  background: linear-gradient(135deg, rgba(96,165,250,.25), rgba(45,212,191,.15));
-  border:1px solid rgba(96,165,250,.35);
-  box-shadow: var(--shadow);
-  font-weight:800;
-}
-.title{font-weight:800; letter-spacing:.2px;}
-.subtitle{color:var(--muted); font-size:12px; margin-top:2px;}
+    <section class="panel detail">
+      <div class="panelHeader">
+        <h2 id="detailTitle">Select a machine</h2>
+        <div class="pill" id="detailStatus">—</div>
+      </div>
 
-.topbarRight{display:flex; gap:10px; align-items:center; flex-wrap:wrap;}
-.kpi{
-  background: rgba(15,22,32,.65);
-  border:1px solid var(--border);
-  border-radius:14px;
-  padding:8px 10px;
-  min-width:90px;
-}
-.kpiLabel{color:var(--muted); font-size:11px;}
-.kpiValue{font-weight:800; margin-top:2px;}
+      <div class="detailBody">
+        <div class="tabs" id="tabs">
+          <button class="tab active" data-tab="overview">Overview</button>
+          <button class="tab" data-tab="program">Program</button>
+          <button class="tab" data-tab="metrology">Metrology</button>
+          <button class="tab" data-tab="alarms">Alarms</button>
+        </div>
 
-.layout{
-  display:grid;
-  grid-template-columns: 1.15fr .85fr;
-  grid-template-rows: auto auto;
-  gap:14px;
-  padding:14px;
-}
+        <div class="tabPanel active" id="tab-overview">
+          <div class="metricsGrid">
+            <div class="metric"><div class="metricLabel">Spindle Load</div><div class="metricValue" id="mSpindle">—</div></div>
+            <div class="metric"><div class="metricLabel">Vibration</div><div class="metricValue" id="mVibe">—</div></div>
+            <div class="metric"><div class="metricLabel">Thermal Drift</div><div class="metricValue" id="mDrift">—</div></div>
+            <div class="metric"><div class="metricLabel">Tool Life</div><div class="metricValue" id="mTool">—</div></div>
+            <div class="metric"><div class="metricLabel">Coolant</div><div class="metricValue" id="mCoolant">—</div></div>
+            <div class="metric"><div class="metricLabel">Chip Load</div><div class="metricValue" id="mChips">—</div></div>
+          </div>
 
-.panel{
-  background: linear-gradient(180deg, rgba(15,22,32,.85), rgba(15,22,32,.65));
-  border:1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  overflow:hidden;
-}
+          <div class="sparkRow">
+            <div class="sparkWrap">
+              <div class="sparkLabel">Spindle Trend</div>
+              <canvas id="sparkSpindle" width="260" height="70"></canvas>
+            </div>
+            <div class="sparkWrap">
+              <div class="sparkLabel">Vibration Trend</div>
+              <canvas id="sparkVibe" width="260" height="70"></canvas>
+            </div>
+          </div>
 
-.panelHeader{
-  padding:12px 14px;
-  border-bottom:1px solid var(--border);
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:10px;
-}
-.panelHeader h2{
-  margin:0;
-  font-size:14px;
-  letter-spacing:.2px;
-}
-.panelHeaderRight{display:flex; gap:10px; align-items:center; flex-wrap:wrap;}
+          <div class="divider"></div>
 
-.fleet{grid-column:1; grid-row:1;}
-.detail{grid-column:2; grid-row:1;}
-.console{grid-column:1 / span 2; grid-row:2;}
+          <div class="card">
+            <div class="cardTitle">Current Job</div>
+            <div class="twoCol">
+              <div>
+                <div class="smallStat">Work Order</div>
+                <div class="smallValue" id="jobName">—</div>
+              </div>
+              <div>
+                <div class="smallStat">Remaining</div>
+                <div class="smallValue" id="jobRemain">—</div>
+              </div>
+              <div>
+                <div class="smallStat">OK / Scrap</div>
+                <div class="smallValue" id="jobCounts">—</div>
+              </div>
+              <div>
+                <div class="smallStat">Feed Override</div>
+                <div class="smallValue" id="jobFeed">—</div>
+              </div>
+            </div>
+          </div>
 
-.input{
-  background: rgba(16,27,39,.85);
-  border:1px solid var(--border);
-  color:var(--text);
-  border-radius: 12px;
-  padding:10px 12px;
-  outline:none;
-}
-.input::placeholder{color:#6b7a92}
-.select{padding-right:30px}
+          <div class="card">
+            <div class="cardTitle">Actions</div>
+            <div class="actions">
+              <button class="btn" id="btnPause">Pause</button>
+              <button class="btn" id="btnResume">Resume</button>
+              <button class="btn ghost" id="btnFeedDown">Feed -10%</button>
+              <button class="btn ghost" id="btnFeedUp">Feed +5%</button>
+              <button class="btn" id="btnProbe">Probe Cycle</button>
+              <button class="btn warn" id="btnHold">Route to Hold</button>
+              <button class="btn danger" id="btnCallTech">Call Tech</button>
+            </div>
+            <div class="divider"></div>
+            <div class="offsetRow">
+              <div class="offsetLabel">X Offs (µm)</div>
+              <input class="input" id="offX" type="number" step="0.1" />
+              <div class="offsetLabel">Z Offs (µm)</div>
+              <input class="input" id="offZ" type="number" step="0.1" />
+              <button class="btn" id="btnApplyOffsets">Apply</button>
+            </div>
+          </div>
+        </div>
 
-.btn{
-  background: rgba(96,165,250,.20);
-  border:1px solid rgba(96,165,250,.35);
-  color: var(--text);
-  border-radius: 12px;
-  padding:10px 12px;
-  cursor:pointer;
-  font-weight:700;
-  transition:.12s transform ease, .12s filter ease;
-}
-.btn:hover{filter:brightness(1.1); transform: translateY(-1px);}
-.btn:active{transform: translateY(0px);}
-.btn.ghost{
-  background: rgba(148,163,184,.10);
-  border:1px solid rgba(148,163,184,.25);
-}
-.btn.warn{
-  background: rgba(251,191,36,.15);
-  border:1px solid rgba(251,191,36,.35);
-}
-.btn.danger{
-  background: rgba(251,113,133,.15);
-  border:1px solid rgba(251,113,133,.35);
-}
+        <div class="tabPanel" id="tab-program">
+          <div class="card">
+            <div class="cardTitle">Operations</div>
+            <div class="mono" id="programOps">—</div>
+          </div>
+          <div class="card">
+            <div class="cardTitle">Tool Table</div>
+            <div class="mono" id="toolTable">—</div>
+          </div>
+        </div>
 
-.fleetGrid{
-  padding:12px;
-  display:grid;
-  grid-template-columns: repeat(2, minmax(220px, 1fr));
-  gap:12px;
-}
+        <div class="tabPanel" id="tab-metrology">
+          <div class="metrologyGrid" id="metrologyGrid"></div>
+        </div>
 
-.machineCard{
-  background: rgba(16,27,39,.80);
-  border:1px solid var(--border);
-  border-radius: 16px;
-  padding:12px;
-  cursor:pointer;
-  transition: .12s transform ease, .12s filter ease, .12s border-color ease;
-  position:relative;
-  overflow:hidden;
-}
-.machineCard:hover{transform: translateY(-2px); filter: brightness(1.06);}
-.machineCard.selected{border-color: rgba(96,165,250,.65);}
+        <div class="tabPanel" id="tab-alarms">
+          <div class="alarmList" id="alarmList"></div>
+        </div>
+      </div>
+    </section>
 
-.cardTop{display:flex; justify-content:space-between; align-items:flex-start; gap:10px;}
-.cardName{font-weight:900;}
-.cardType{color:var(--muted); font-size:12px; margin-top:2px;}
-.badges{display:flex; gap:6px; align-items:center;}
-.badge{
-  font-size:11px;
-  padding:4px 8px;
-  border-radius:999px;
-  border:1px solid var(--border);
-  background: rgba(148,163,184,.10);
-  color: var(--muted);
-}
-.badge.good{border-color: rgba(45,212,191,.35); color: var(--good); background: rgba(45,212,191,.10);}
-.badge.warn{border-color: rgba(251,191,36,.35); color: var(--warn); background: rgba(251,191,36,.10);}
-.badge.bad{border-color: rgba(251,113,133,.35); color: var(--bad); background: rgba(251,113,133,.10);}
+    <section class="panel console">
+      <div class="panelHeader">
+        <h2>Operations Console</h2>
+        <div class="panelHeaderRight">
+          <button class="btn ghost" id="btnClearConsole">Clear</button>
+        </div>
+      </div>
+      <div class="consoleBody" id="consoleBody"></div>
+    </section>
+  </main>
 
-.cardBody{
-  margin-top:10px;
-  display:grid;
-  grid-template-columns: 1fr 1fr;
-  gap:10px;
-}
-.smallStat{color:var(--muted); font-size:12px;}
-.smallValue{font-weight:800; margin-top:3px;}
-.progress{
-  height:10px; border-radius:999px;
-  background: rgba(148,163,184,.10);
-  border: 1px solid rgba(148,163,184,.16);
-  overflow:hidden;
-  margin-top:8px;
-}
-.progress > div{
-  height:100%;
-  background: linear-gradient(90deg, rgba(96,165,250,.75), rgba(45,212,191,.75));
-  width:40%;
-}
-
-.pill{
-  font-size:12px;
-  padding:6px 10px;
-  border-radius:999px;
-  border:1px solid var(--border);
-  background: rgba(148,163,184,.10);
-  color: var(--muted);
-}
-
-.detailBody{padding:12px;}
-.tabs{display:flex; gap:8px; margin-bottom:10px; flex-wrap:wrap;}
-.tab{
-  background: rgba(148,163,184,.08);
-  border:1px solid rgba(148,163,184,.20);
-  color: var(--muted);
-  padding:9px 11px;
-  border-radius: 12px;
-  cursor:pointer;
-  font-weight:800;
-}
-.tab.active{
-  background: rgba(96,165,250,.18);
-  border-color: rgba(96,165,250,.35);
-  color: var(--text);
-}
-.tabPanel{display:none;}
-.tabPanel.active{display:block;}
-
-.card{
-  background: rgba(16,27,39,.75);
-  border:1px solid var(--border);
-  border-radius: 16px;
-  padding:12px;
-  margin-bottom:12px;
-}
-.cardTitle{font-weight:900; margin-bottom:10px; color: var(--text);}
-
-.twoCol{
-  display:grid;
-  grid-template-columns: 1fr;
-  gap:12px;
-}
-@media (min-width: 1200px){
-  .twoCol{grid-template-columns: 1fr 1fr;}
-  .fleetGrid{grid-template-columns: repeat(2, minmax(260px, 1fr));}
-}
-.metricsGrid{
-  display:grid;
-  grid-template-columns: repeat(3, minmax(0,1fr));
-  gap:10px;
-}
-.metric{
-  border:1px solid rgba(148,163,184,.16);
-  background: rgba(11,15,20,.35);
-  border-radius: 14px;
-  padding:10px;
-}
-.metricLabel{color:var(--muted); font-size:11px;}
-.metricValue{font-weight:900; margin-top:4px;}
-
-.sparkRow{display:grid; gap:10px; margin-top:10px;}
-.sparkWrap{
-  border:1px solid rgba(148,163,184,.16);
-  background: rgba(11,15,20,.35);
-  border-radius: 14px;
-  padding:10px;
-}
-.sparkLabel{color:var(--muted); font-size:11px; margin-bottom:8px;}
-
-.actions{
-  display:grid;
-  grid-template-columns: repeat(2, minmax(0,1fr));
-  gap:10px;
-}
-.finePrint{color:var(--muted); font-size:12px; margin-top:10px; line-height:1.35;}
-.divider{height:1px; background: var(--border); margin:12px 0;}
-
-.offsetRow{
-  display:grid;
-  grid-template-columns: 28px 1fr 28px 1fr auto;
-  gap:8px;
-  align-items:center;
-}
-.offsetLabel{color:var(--muted); font-size:12px;}
-
-.ordersRow{
-  display:grid;
-  grid-template-columns: repeat(4, minmax(0,1fr));
-  gap:10px;
-}
-.orderBox{
-  border:1px solid rgba(148,163,184,.16);
-  background: rgba(11,15,20,.35);
-  border-radius: 14px;
-  padding:10px;
-}
-.orderLabel{color:var(--muted); font-size:11px;}
-.orderValue{font-weight:900; margin-top:4px;}
-
-.mono{
-  font-family: var(--mono);
-  font-size:12px;
-  color: #cbd5e1;
-  white-space: pre-wrap;
-  line-height:1.45;
-}
-
-.metrologyGrid{
-  display:grid;
-  grid-template-columns: 1fr 1fr;
-  gap:10px;
-}
-.mItem{
-  border:1px solid rgba(148,163,184,.16);
-  background: rgba(11,15,20,.35);
-  border-radius: 14px;
-  padding:10px;
-}
-.mTop{display:flex; justify-content:space-between; gap:10px; align-items:center;}
-.mName{font-weight:900;}
-.mTol{color:var(--muted); font-size:11px;}
-.mVal{margin-top:8px; font-family: var(--mono); font-weight:900;}
-.pass{color: var(--good);}
-.fail{color: var(--bad);}
-
-.alarmList{display:flex; flex-direction:column; gap:10px;}
-.alarm{
-  border:1px solid rgba(148,163,184,.16);
-  background: rgba(11,15,20,.35);
-  border-radius: 14px;
-  padding:10px;
-}
-.alarmTop{display:flex; justify-content:space-between; gap:10px; align-items:flex-start;}
-.alarmTitle{font-weight:900;}
-.alarmMeta{color:var(--muted); font-size:12px; margin-top:3px;}
-.alarmActions{display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;}
-
-.consoleBody{
-  padding:12px;
-  height:220px;
-  overflow:auto;
-  font-family: var(--mono);
-  font-size:12px;
-  color:#cbd5e1;
-  background: rgba(11,15,20,.35);
-}
-.consoleLine{padding:6px 0; border-bottom:1px dashed rgba(148,163,184,.12);}
-.consoleLine b{color:var(--text)}
+  <script src="richard-laboratories-website/app.js"></script>
+</body>
+</html>
