@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  …
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+</head>
+<body>
+  <h1>Nuclear Power Conversion Map</h1>
+  <div id="controls">
+    <label for="yearRange">Switch Year: <span id="yearLabel">2023</span></label>
+    <input type="range" id="yearRange" min="2015" max="2023" value="2023" />
+    <br/>
+    <label for="percentSlider">Conversion %: <span id="percentLabel">0%</span></label>
+    <input type="range" id="percentSlider" min="0" max="100" value="0" />
+  </div>
+  
+  <div id="map"></div>
+  <div id="summary">
+    <p id="co2"></p>
+    <p id="co2Produced"></p>
+  </div>
+
+  <!-- Chart containers -->
+  <div class="charts">
+    <div id="chart1" class="chart"></div>
+    <div id="chart2" class="chart"></div>
+    <div id="chart3" class="chart"></div>
+    <div id="chart4" class="chart"></div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
