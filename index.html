@@ -1,171 +1,289 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Richard Laboratories — Remote Ops Console</title>
-  <link rel="stylesheet" href="richard-laboratories-website/style.css" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>CNC Remote Operator HMI — Trainer</title>
+  <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <header class="topbar">
     <div class="brand">
-      <div class="logo">RL</div>
-      <div>
-        <div class="title">Remote Ops Console</div>
-        <div class="subtitle">Richard Laboratories • Live Fleet Telemetry</div>
+      <div class="logo">CNC</div>
+      <div class="brandText">
+        <div class="title">Remote Operator HMI (Trainer)</div>
+        <div class="subtitle">Single-machine cockpit • Checklist-gated • GitHub Pages</div>
       </div>
     </div>
 
-    <div class="topbarRight">
-      <div class="kpi">
-        <div class="kpiLabel">Fleet OEE</div>
-        <div class="kpiValue" id="kpiOee">—</div>
-      </div>
-      <div class="kpi">
-        <div class="kpiLabel">Scrap</div>
-        <div class="kpiValue" id="kpiScrap">—</div>
-      </div>
-      <div class="kpi">
-        <div class="kpiLabel">Downtime</div>
-        <div class="kpiValue" id="kpiDown">—</div>
-      </div>
-      <button class="btn ghost" id="btnShift">Night Shift: Off</button>
-      <button class="btn ghost" id="btnSimSpeed">Speed: 1x</button>
+    <div class="headerRight">
+      <div class="pill" id="connPill">LINK: OK</div>
+      <div class="pill" id="machineStatePill">STATE: IDLE</div>
+      <div class="pill" id="estopPill">E-STOP: CLEAR</div>
+      <button class="btn ghost" id="btnSimSpeed">SIM 1×</button>
     </div>
   </header>
 
-  <main class="layout">
-    <section class="panel fleet">
+  <main class="grid">
+    <!-- LEFT: Program + Status -->
+    <section class="panel program">
       <div class="panelHeader">
-        <h2>Fleet Overview</h2>
+        <h2>Program & Execution</h2>
         <div class="panelHeaderRight">
-          <input class="input" id="search" placeholder="Search machine, ID, type" />
-          <select class="input select" id="filterStatus">
-            <option value="all">All Status</option>
-            <option value="RUNNING">Running</option>
-            <option value="IDLE">Idle</option>
-            <option value="WAIT_MAT">Waiting Mat</option>
-            <option value="ALARM">Alarm</option>
-            <option value="OFFLINE">Offline</option>
+          <select class="input select" id="jobSelect">
+            <option value="LATHE_SHAFT">LATHE • Shaft (4140)</option>
+            <option value="LATHE_BUSHING">LATHE • Bushing (6061)</option>
+            <option value="VMC_BRACKET">VMC • Bracket (6061)</option>
+            <option value="FIVEAX_IMPELLER">5-AX • Impeller (Ti)</option>
           </select>
+          <button class="btn" id="btnLoadJob">Load Job</button>
         </div>
       </div>
-      <div class="fleetGrid" id="fleetGrid"></div>
+
+      <div class="split">
+        <div class="card">
+          <div class="cardTitle">Machine Status</div>
+          <div class="statusGrid">
+            <div class="stat">
+              <div class="label">Op</div>
+              <div class="value" id="opName">—</div>
+            </div>
+            <div class="stat">
+              <div class="label">Cycle</div>
+              <div class="value" id="cycleTime">—</div>
+            </div>
+            <div class="stat">
+              <div class="label">Part Count</div>
+              <div class="value" id="partCount">0 OK / 0 Scrap / 0 Hold</div>
+            </div>
+            <div class="stat">
+              <div class="label">Feed Override</div>
+              <div class="value" id="feedOv">100%</div>
+            </div>
+            <div class="stat">
+              <div class="label">Spindle Override</div>
+              <div class="value" id="spinOv">100%</div>
+            </div>
+            <div class="stat">
+              <div class="label">Permissions</div>
+              <div class="value mono" id="permSummary">Gated by checklist</div>
+            </div>
+          </div>
+
+          <div class="actionsRow">
+            <button class="btn" id="btnStart">CYCLE START</button>
+            <button class="btn warn" id="btnPause">PAUSE</button>
+            <button class="btn" id="btnResume">RESUME</button>
+            <button class="btn danger" id="btnEstop">E-STOP</button>
+          </div>
+
+          <div class="finePrint" id="startGateNote">
+            Start is locked until the pre-run checklist is complete.
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="cardTitle">Program View (Read-only)</div>
+          <pre class="code" id="programText">; Load a job to view the program preview.</pre>
+          <div class="finePrint">
+            In training mode, program edits are disabled. Operators work via approved controls, offsets, and procedures.
+          </div>
+        </div>
+      </div>
     </section>
 
-    <section class="panel detail">
+    <!-- RIGHT: Checklist + Validation -->
+    <aside class="panel checklist">
       <div class="panelHeader">
-        <h2 id="detailTitle">Select a machine</h2>
-        <div class="pill" id="detailStatus">—</div>
+        <h2>Pre-Run Checklist (Gates Inputs)</h2>
+        <div class="panelHeaderRight">
+          <div class="pill" id="checklistPill">CHECKLIST: INCOMPLETE</div>
+          <button class="btn ghost" id="btnResetChecklist">Reset</button>
+        </div>
       </div>
 
-      <div class="detailBody">
-        <div class="tabs" id="tabs">
-          <button class="tab active" data-tab="overview">Overview</button>
-          <button class="tab" data-tab="program">Program</button>
-          <button class="tab" data-tab="metrology">Metrology</button>
-          <button class="tab" data-tab="alarms">Alarms</button>
+      <div class="card">
+        <div class="cardTitle">Checklist Items</div>
+        <div class="checklistGrid" id="checklistGrid"></div>
+        <div class="divider"></div>
+        <div class="cardTitle">Checklist Evidence</div>
+        <div class="evidenceGrid">
+          <div class="ev">
+            <label class="label">Material Verified</label>
+            <select class="input select" id="evMaterial">
+              <option value="">Select…</option>
+              <option value="YES">Yes</option>
+              <option value="NO">No</option>
+            </select>
+          </div>
+          <div class="ev">
+            <label class="label">Workholding Verified</label>
+            <select class="input select" id="evWorkholding">
+              <option value="">Select…</option>
+              <option value="YES">Yes</option>
+              <option value="NO">No</option>
+            </select>
+          </div>
+          <div class="ev">
+            <label class="label">Tools Loaded & Matched</label>
+            <select class="input select" id="evToolsLoaded">
+              <option value="">Select…</option>
+              <option value="YES">Yes</option>
+              <option value="NO">No</option>
+            </select>
+          </div>
+          <div class="ev">
+            <label class="label">Probing Enabled</label>
+            <select class="input select" id="evProbeEnabled">
+              <option value="">Select…</option>
+              <option value="YES">Yes</option>
+              <option value="NO">No</option>
+            </select>
+          </div>
+          <div class="ev">
+            <label class="label">Dry Run Completed</label>
+            <select class="input select" id="evDryRun">
+              <option value="">Select…</option>
+              <option value="YES">Yes</option>
+              <option value="NO">No</option>
+            </select>
+          </div>
+          <div class="ev">
+            <label class="label">Signed (Operator ID)</label>
+            <input class="input" id="evOperatorId" placeholder="e.g., OP-1027" />
+          </div>
         </div>
+      </div>
 
-        <div class="tabPanel active" id="tab-overview">
-          <div class="metricsGrid">
-            <div class="metric"><div class="metricLabel">Spindle Load</div><div class="metricValue" id="mSpindle">—</div></div>
-            <div class="metric"><div class="metricLabel">Vibration</div><div class="metricValue" id="mVibe">—</div></div>
-            <div class="metric"><div class="metricLabel">Thermal Drift</div><div class="metricValue" id="mDrift">—</div></div>
-            <div class="metric"><div class="metricLabel">Tool Life</div><div class="metricValue" id="mTool">—</div></div>
-            <div class="metric"><div class="metricLabel">Coolant</div><div class="metricValue" id="mCoolant">—</div></div>
-            <div class="metric"><div class="metricLabel">Chip Load</div><div class="metricValue" id="mChips">—</div></div>
+      <div class="card">
+        <div class="cardTitle">Input Guardrails (Validated)</div>
+        <div class="guardGrid">
+          <div class="guard">
+            <div class="label">Feed Override</div>
+            <div class="row">
+              <button class="btn warn" id="btnFeedDown">−10%</button>
+              <button class="btn" id="btnFeedUp">+5%</button>
+            </div>
+            <div class="finePrint">Bounded to 60–115%. Requires checklist complete.</div>
+          </div>
+
+          <div class="guard">
+            <div class="label">Spindle Override</div>
+            <div class="row">
+              <button class="btn warn" id="btnSpinDown">−10%</button>
+              <button class="btn" id="btnSpinUp">+5%</button>
+            </div>
+            <div class="finePrint">Bounded to 70–110%. Requires checklist complete.</div>
+          </div>
+
+          <div class="guard">
+            <div class="label">Offsets (µm)</div>
+            <div class="row3">
+              <input class="input" id="offX" type="number" step="1" value="0" />
+              <input class="input" id="offZ" type="number" step="1" value="0" />
+              <button class="btn" id="btnApplyOffsets">Apply</button>
+            </div>
+            <div class="finePrint">Bounded ±40 µm. Over-limit requires “Override Key”.</div>
+          </div>
+
+          <div class="guard">
+            <div class="label">Override Key (Supervisor)</div>
+            <div class="row3">
+              <input class="input" id="overrideKey" placeholder="Enter key to allow >±40 µm" />
+              <button class="btn ghost" id="btnArmOverride">Arm</button>
+              <div class="pill" id="overridePill">OVERRIDE: OFF</div>
+            </div>
+            <div class="finePrint">Used only for exceptional recovery. Logged.</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- BOTTOM LEFT: Telemetry + Alarms -->
+    <section class="panel telemetry">
+      <div class="panelHeader">
+        <h2>Telemetry & Alarms</h2>
+        <div class="panelHeaderRight">
+          <div class="pill" id="alarmPill">ALARMS: 0</div>
+          <button class="btn ghost" id="btnClearAlarms">Clear Acks</button>
+        </div>
+      </div>
+
+      <div class="teleGrid">
+        <div class="card">
+          <div class="cardTitle">Live Telemetry</div>
+          <div class="teleMetrics">
+            <div class="stat">
+              <div class="label">Spindle Load</div>
+              <div class="value" id="tSpindle">—</div>
+            </div>
+            <div class="stat">
+              <div class="label">Vibration</div>
+              <div class="value" id="tVibe">—</div>
+            </div>
+            <div class="stat">
+              <div class="label">Temp Drift</div>
+              <div class="value" id="tDrift">—</div>
+            </div>
+            <div class="stat">
+              <div class="label">Tool Life</div>
+              <div class="value" id="tTool">—</div>
+            </div>
+            <div class="stat">
+              <div class="label">Coolant</div>
+              <div class="value" id="tCoolant">—</div>
+            </div>
+            <div class="stat">
+              <div class="label">Chip Load</div>
+              <div class="value" id="tChips">—</div>
+            </div>
           </div>
 
           <div class="sparkRow">
             <div class="sparkWrap">
-              <div class="sparkLabel">Spindle Trend</div>
-              <canvas id="sparkSpindle" width="260" height="70"></canvas>
+              <div class="label">Spindle %</div>
+              <canvas id="sparkSpindle" width="340" height="60"></canvas>
             </div>
             <div class="sparkWrap">
-              <div class="sparkLabel">Vibration Trend</div>
-              <canvas id="sparkVibe" width="260" height="70"></canvas>
-            </div>
-          </div>
-
-          <div class="divider"></div>
-
-          <div class="card">
-            <div class="cardTitle">Current Job</div>
-            <div class="twoCol">
-              <div>
-                <div class="smallStat">Work Order</div>
-                <div class="smallValue" id="jobName">—</div>
-              </div>
-              <div>
-                <div class="smallStat">Remaining</div>
-                <div class="smallValue" id="jobRemain">—</div>
-              </div>
-              <div>
-                <div class="smallStat">OK / Scrap</div>
-                <div class="smallValue" id="jobCounts">—</div>
-              </div>
-              <div>
-                <div class="smallStat">Feed Override</div>
-                <div class="smallValue" id="jobFeed">—</div>
-              </div>
-            </div>
-          </div>
-
-          <div class="card">
-            <div class="cardTitle">Actions</div>
-            <div class="actions">
-              <button class="btn" id="btnPause">Pause</button>
-              <button class="btn" id="btnResume">Resume</button>
-              <button class="btn ghost" id="btnFeedDown">Feed -10%</button>
-              <button class="btn ghost" id="btnFeedUp">Feed +5%</button>
-              <button class="btn" id="btnProbe">Probe Cycle</button>
-              <button class="btn warn" id="btnHold">Route to Hold</button>
-              <button class="btn danger" id="btnCallTech">Call Tech</button>
-            </div>
-            <div class="divider"></div>
-            <div class="offsetRow">
-              <div class="offsetLabel">X Offs (µm)</div>
-              <input class="input" id="offX" type="number" step="0.1" />
-              <div class="offsetLabel">Z Offs (µm)</div>
-              <input class="input" id="offZ" type="number" step="0.1" />
-              <button class="btn" id="btnApplyOffsets">Apply</button>
+              <div class="label">Vibration</div>
+              <canvas id="sparkVibe" width="340" height="60"></canvas>
             </div>
           </div>
         </div>
 
-        <div class="tabPanel" id="tab-program">
-          <div class="card">
-            <div class="cardTitle">Operations</div>
-            <div class="mono" id="programOps">—</div>
-          </div>
-          <div class="card">
-            <div class="cardTitle">Tool Table</div>
-            <div class="mono" id="toolTable">—</div>
-          </div>
-        </div>
-
-        <div class="tabPanel" id="tab-metrology">
-          <div class="metrologyGrid" id="metrologyGrid"></div>
-        </div>
-
-        <div class="tabPanel" id="tab-alarms">
+        <div class="card">
+          <div class="cardTitle">Alarm Queue</div>
           <div class="alarmList" id="alarmList"></div>
+          <div class="divider"></div>
+          <div class="cardTitle">Operator Actions Log</div>
+          <div class="console" id="console"></div>
         </div>
       </div>
     </section>
 
-    <section class="panel console">
+    <!-- BOTTOM RIGHT: Outputs + Validation -->
+    <aside class="panel outputs">
       <div class="panelHeader">
-        <h2>Operations Console</h2>
+        <h2>Outputs & Validation</h2>
         <div class="panelHeaderRight">
-          <button class="btn ghost" id="btnClearConsole">Clear</button>
+          <div class="pill" id="outputPill">OUTPUT: NOT READY</div>
+          <button class="btn" id="btnExport">Export JSON</button>
         </div>
       </div>
-      <div class="consoleBody" id="consoleBody"></div>
-    </section>
+
+      <div class="card">
+        <div class="cardTitle">Required Outputs Checklist</div>
+        <div class="checklistGrid" id="outputsChecklist"></div>
+        <div class="divider"></div>
+        <div class="cardTitle">Outputs (Structured)</div>
+        <pre class="code" id="outputJson">{}</pre>
+        <div class="finePrint">
+          Outputs are updated during runtime and finalized after a completed cycle.
+        </div>
+      </div>
+    </aside>
   </main>
 
-  <script src="richard-laboratories-website/app.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
